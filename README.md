@@ -13,6 +13,18 @@ supported antibiotic:
 It is not a diagnostic device and never recommends treatment. Every result
 must be confirmed with standard laboratory testing.
 
+## Live demo
+
+**Current demo:** [Open ResistSense](https://powerful-cooked-mercy-style.trycloudflare.com)
+
+> **Hackathon submission link update (July 19, 2026):** The original demo URL
+> used a temporary Cloudflare Quick Tunnel and expired after the host machine
+> restarted. The link above is the current active demo. Because it is a
+> temporary tunnel, it remains available only while the host machine, Docker
+> services, and internet connection are online. If the link is unavailable,
+> the verified Docker instructions below reproduce the complete application
+> locally.
+
 ## Current status
 
 The BV-BRC laboratory-phenotype audit is reproducible. The 2,909-genome frozen
