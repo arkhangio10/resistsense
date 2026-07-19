@@ -84,8 +84,13 @@ if ($LASTEXITCODE -ne 0) {
     throw "Hugging Face authentication is required. Run: hf auth login"
 }
 
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "SilentlyContinue"
 gh release view $releaseTag --repo $repository *> $null
-if ($LASTEXITCODE -eq 0) {
+$releaseExists = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $previousErrorActionPreference
+
+if ($releaseExists) {
     $verificationPath = Join-Path $projectRoot "tmp\hf-release-verification"
     if (-not $verificationPath.StartsWith($expectedStagingRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Unsafe release verification path: $verificationPath"
