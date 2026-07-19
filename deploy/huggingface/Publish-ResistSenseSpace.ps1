@@ -13,6 +13,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $stagingPath = Join-Path $projectRoot "tmp\huggingface-space-upload"
 $expectedStagingRoot = Join-Path $projectRoot "tmp"
