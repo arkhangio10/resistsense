@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+data
+tmp
+release
+artifacts
+frontend/node_modules
+frontend/dist
+frontend/.next
+frontend/.wrangler
+frontend/.env.local

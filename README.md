@@ -95,6 +95,14 @@ Open `http://localhost:3000`. The API health endpoint is
 `http://localhost:8000/health`. See `docs/deployment.md` for public-origin and
 release-asset configuration.
 
+## Permanent Hugging Face deployment
+
+The repository includes a single-container Hugging Face Docker Space that
+combines the React application, FastAPI service, pinned AMRFinderPlus runtime,
+and checksum-frozen model bundle behind one stable public origin. See
+[`docs/huggingface_deployment.md`](docs/huggingface_deployment.md) for the
+architecture and publication workflow.
+
 ## Verified phase-2 audit
 
 ```powershell
