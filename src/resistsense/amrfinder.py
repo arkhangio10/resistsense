@@ -130,6 +130,9 @@ def annotate_fasta(
                     "-o",
                     str(output_path),
                 ]
+                configured_threads = os.getenv("AMRFINDER_THREADS", "").strip()
+                if configured_threads.isdigit() and int(configured_threads) > 0:
+                    command.extend(["--threads", configured_threads])
                 tool_version = _version(resolved)
             else:
                 assert docker is not None

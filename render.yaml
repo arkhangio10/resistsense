@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: resistsense-api
+    runtime: docker
+    plan: standard
+    region: virginia
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: RESISTSENSE_CORS_ORIGINS
+        value: https://resistsense-app.onrender.com
+      - key: AMRFINDER_THREADS
+        value: "1"
+
+  - type: web
+    name: resistsense-app
+    runtime: docker
+    plan: starter
+    region: virginia
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://resistsense-api.onrender.com

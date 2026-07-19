@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import load_config
@@ -171,7 +172,7 @@ async def analyze(file: UploadFile = File(...)) -> dict:
     content = await file.read(config.runtime.max_upload_bytes + 1)
     if len(content) > config.runtime.max_upload_bytes:
         raise HTTPException(status_code=413, detail="FASTA exceeds the upload limit")
-    response = analyze_fasta(content, filename, config)
+    response = await run_in_threadpool(analyze_fasta, content, filename, config)
     violations = audit_report(response)
     if violations:
         raise HTTPException(
