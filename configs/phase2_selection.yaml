@@ -1,0 +1,78 @@
+project: ResistSense
+status: self_curated_dataset_authorized
+generated_on: 2026-07-18
+
+policy_basis:
+  clarification: Organizers allow teams to build and debug their own dataset.
+  reported_by_project_owner_on: 2026-07-18
+  provenance_action: Archive the Kai and Sanika message or URL with the submission.
+
+source:
+  provider: BV-BRC
+  collection: genome_amr
+  required_evidence: Laboratory Method
+  allowed_labels:
+    - Resistant
+    - Susceptible
+  excluded_labels:
+    - Intermediate
+  conflict_policy: exclude_genome_antibiotic_pair
+
+species:
+  name: Escherichia coli
+  taxon_id: 562
+  amrfinderplus_organism: Escherichia
+
+preliminary_genome_qc:
+  genome_quality: Good
+  genome_length_bp:
+    min: 4000000
+    max: 6500000
+  contigs_max: 500
+  checkm_completeness_min_when_available: 95
+  checkm_contamination_max_when_available: 5
+
+cohort_policy:
+  require_clear_label_for_every_declared_antibiotic: true
+  require_cgmlst_hc50: true
+  candidate_samples: 2909
+  candidate_genetic_groups: 1306
+  split_provenance: resistsense-ecoli-lab-cgmlst-v1
+  split_proportions:
+    train: 0.60
+    probability_calibration: 0.15
+    conformal_calibration: 0.10
+    test: 0.15
+
+antibiotics:
+  - name: ampicillin
+    role: known_acquired_beta_lactam_resistance
+    preliminary_qc_pairs: 6397
+    preliminary_qc_resistant: 3583
+    preliminary_qc_susceptible: 2814
+  - name: ciprofloxacin
+    role: chromosomal_mutations_plus_acquired_mechanisms
+    preliminary_qc_pairs: 7242
+    preliminary_qc_resistant: 1824
+    preliminary_qc_susceptible: 5418
+  - name: cefotaxime
+    role: extended_spectrum_beta_lactam_resistance
+    preliminary_qc_pairs: 6531
+    preliminary_qc_resistant: 1238
+    preliminary_qc_susceptible: 5293
+  - name: gentamicin
+    role: imbalanced_aminoglycoside_endpoint
+    preliminary_qc_pairs: 7280
+    preliminary_qc_resistant: 854
+    preliminary_qc_susceptible: 6426
+  - name: trimethoprim/sulfamethoxazole
+    role: dual_target_combination_endpoint
+    preliminary_qc_pairs: 4102
+    preliminary_qc_resistant: 1411
+    preliminary_qc_susceptible: 2691
+
+excluded_candidates:
+  - name: meropenem
+    reason: only_69_resistant_pairs_before_preliminary_genome_qc
+  - name: tigecycline
+    reason: only_10_resistant_laboratory_records_in_initial_screen

@@ -1,0 +1,32 @@
+{
+  "assembly": "GCF_000005845.2_ASM584v2",
+  "source": "NCBI RefSeq E. coli K-12 MG1655",
+  "base_url": "https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/005/845/GCF_000005845.2_ASM584v2",
+  "source_compressed_sha256": {
+    "genomic.gff.gz": "7aa71ffaef2caa51e5cb00da96d567c8001c19f029a173d3df3b273331a587b2",
+    "protein.faa.gz": "283c91ff66d0597f2488fd1c00ad40f8d0a0b37a92f981b6148d75fa4a934896",
+    "genomic.fna.gz": "a96d3cfa58c88d477013c768f90a11d2386d42a70d566abfb6d9013dcbd24255"
+  },
+  "outputs": {
+    "ecoli_k12_targets.faa": "84a5d293e1a8930d916cbc6e70da45acee50d2b6432571e5a4e770f17edf2c26",
+    "ecoli_k12_rrs.fna": "e58f86d9280f52cf0873c29188b2416f48de5177118d1b66119dce2e16eb911c"
+  },
+  "protein_ids": {
+    "folA": "NP_414590.1",
+    "folP": "NP_417644.4",
+    "ftsI": "NP_414626.1",
+    "gyrA": "NP_416734.1",
+    "gyrB": "YP_026241.1",
+    "mrcA": "NP_417855.4",
+    "mrcB": "NP_414691.1",
+    "parC": "NP_417491.1",
+    "parE": "NP_417502.1"
+  },
+  "rrs_reference": {
+    "gene": "rrsA",
+    "sequence_id": "NC_000913.3",
+    "start": 4035531,
+    "end": 4037072,
+    "strand": "+"
+  }
+}

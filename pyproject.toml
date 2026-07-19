@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resistsense"
+version = "0.1.0"
+description = "Defensive genome firewall for antimicrobial-resistance research"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "joblib==1.5.3",
+  "numpy==2.3.4",
+  "pandas==2.3.3",
+  "pydantic>=2.11,<3",
+  "python-multipart>=0.0.20,<1",
+  "PyYAML>=6.0,<7",
+  "scikit-learn==1.8.0",
+  "scipy==1.17.0",
+  "uvicorn[standard]>=0.35,<1",
+]
+
+[project.scripts]
+resistsense-target-annotator = "resistsense.target_reference_annotator:main"
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.4,<10",
+  "pytest-cov>=6,<8",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"

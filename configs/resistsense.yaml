@@ -1,0 +1,69 @@
+project:
+  name: ResistSense
+  tagline: Predict. Challenge. Abstain.
+  mode: research_prototype
+  mandatory_disclaimer: >-
+    Research prototype. Confirm every antibiotic-response result with standard
+    laboratory testing. This system does not recommend treatment.
+
+scope:
+  species:
+    scientific_name: Escherichia coli
+    taxon_id: 562
+    amrfinderplus_organism: Escherichia
+  antibiotics:
+    - ampicillin
+    - ciprofloxacin
+    - cefotaxime
+    - gentamicin
+    - trimethoprim/sulfamethoxazole
+
+fasta_qc:
+  min_genome_length_bp: 4000000
+  max_genome_length_bp: 6500000
+  max_contigs: 500
+  max_ambiguous_fraction: 0.02
+  allowed_bases: ACGTNRYSWKMBDHV
+
+features:
+  kmer:
+    enabled: true
+    k: 15
+    buckets: 512
+    stride: 25
+
+modeling:
+  selection_source: artifacts/evaluation/model_selection.json
+  antibiotics:
+    ampicillin:
+      strategy: amrfinder_logistic
+      conformal_alpha: 0.05
+    ciprofloxacin:
+      strategy: full_ensemble
+      conformal_alpha: 0.05
+    cefotaxime:
+      strategy: amrfinder_logistic
+      conformal_alpha: 0.05
+    gentamicin:
+      strategy: amrfinder_logistic
+      conformal_alpha: 0.05
+    trimethoprim/sulfamethoxazole:
+      strategy: amrfinder_logistic
+      conformal_alpha: 0.05
+
+firewall:
+  resistant_probability_threshold: 0.70
+  susceptible_probability_threshold: 0.30
+  maximum_model_disagreement: 0.25
+  maximum_ood_score: 0.80
+  require_calibration: true
+  require_conformal_singleton: true
+  require_target_for_probable_efficacy: true
+  require_amrfinderplus: true
+
+runtime:
+  model_dir: artifacts/runtime/models
+  report_dir: artifacts/runtime/reports
+  max_upload_bytes: 15000000
+  amrfinder_timeout_seconds: 900
+  target_annotator_timeout_seconds: 900

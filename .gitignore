@@ -1,0 +1,27 @@
+# Large source datasets and generated model artefacts
+data/raw/
+data/interim/
+data/processed/
+models/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Generated evaluation and runtime artifacts
+.env
+tmp/
+artifacts/
+release/*.zip
+release/*.tar.gz
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/.wrangler/
+frontend/.env.local

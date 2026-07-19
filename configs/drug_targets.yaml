@@ -1,0 +1,28 @@
+species: Escherichia coli
+policy: >-
+  Target evidence must come from an annotation pipeline independent of the
+  absence of resistance markers. Unknown target state activates no-call for a
+  probable-efficacy result.
+antibiotics:
+  ampicillin:
+    target_class: penicillin-binding proteins
+    required_groups: [[ftsI], [mrcA], [mrcB]]
+    resistance_classes: [BETA-LACTAM]
+  ciprofloxacin:
+    target_class: DNA gyrase and topoisomerase IV
+    required_groups: [[gyrA], [gyrB], [parC], [parE]]
+    resistance_classes: [QUINOLONE]
+  cefotaxime:
+    target_class: penicillin-binding protein 3
+    required_groups: [[ftsI]]
+    resistance_classes: [BETA-LACTAM]
+    resistance_subclasses: [CEPHALOSPORIN]
+  gentamicin:
+    target_class: bacterial 16S rRNA
+    required_groups: [[rrs]]
+    resistance_classes: [AMINOGLYCOSIDE]
+    resistance_subclasses: [GENTAMICIN, AMINOGLYCOSIDE]
+  trimethoprim/sulfamethoxazole:
+    target_class: folate biosynthesis
+    required_groups: [[folA], [folP]]
+    resistance_classes: [TRIMETHOPRIM, SULFONAMIDE]

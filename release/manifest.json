@@ -1,0 +1,51 @@
+{
+  "project": "ResistSense",
+  "version": "0.1.0",
+  "status": "research_prototype",
+  "external_validation_complete": false,
+  "dataset_sha256": "5f404ca451c12b51943484a4549d9d8dc5643015ae33d699673f2586e7472d09",
+  "predictions_sha256": "0c5c0fa157d89eefb08a9861eb36c057eb122775ef35b140b56a6f729a04f28f",
+  "model_selection_sha256": "56a2e4e0cf9a846b8f8f1c889509d4fa203cc60b1c1a50b25a91095cedf9e6a9",
+  "evaluation_sha256": "1937d01a53d82ed13286f1e58b37c62370da26f8fec05113f8c8748e5edb0e60",
+  "prediction_autopsy_sha256": "aff09111983d173456d09b4e651de1aeb14fb8b3a31bc65f6713e3241ac61990",
+  "model_runtime": {
+    "python": "3.11",
+    "scikit_learn": "1.8.0",
+    "numpy": "2.3.4",
+    "scipy": "1.17.0",
+    "joblib": "1.5.3",
+    "pandas": "2.3.3"
+  },
+  "models": [
+    {
+      "name": "ampicillin.joblib",
+      "strategy": "amrfinder_logistic",
+      "size_bytes": 2969101,
+      "sha256": "92ce03c8715873d2bc522a6c4967bda25d8798a6c54f0b568c8c0bda1782ae7f"
+    },
+    {
+      "name": "cefotaxime.joblib",
+      "strategy": "amrfinder_logistic",
+      "size_bytes": 2969102,
+      "sha256": "59266a268d78b51926a96cf834f2fc944361cb9de17ac40056ad7b6c9a396e83"
+    },
+    {
+      "name": "ciprofloxacin.joblib",
+      "strategy": "full_ensemble",
+      "size_bytes": 11586355,
+      "sha256": "d8879e6c77688d0358b6673ca02215e6b6e6a2505babcd59e6c9f1e967e891e0"
+    },
+    {
+      "name": "gentamicin.joblib",
+      "strategy": "amrfinder_logistic",
+      "size_bytes": 2969102,
+      "sha256": "d8b7bceec009c1b992a1275713e8bede1c3646240c31d62fc44daa395c912b1b"
+    },
+    {
+      "name": "trimethoprim_sulfamethoxazole.joblib",
+      "strategy": "amrfinder_logistic",
+      "size_bytes": 2969118,
+      "sha256": "2bd2522ffc6b042645e031f1d3db2e99a4fe252088ba61fcbb8c182067e41d6e"
+    }
+  ]
+}
