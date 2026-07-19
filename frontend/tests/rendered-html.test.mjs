@@ -23,11 +23,14 @@ test("server-renders the ResistSense product shell", async () => {
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
   assert.match(html, /<title>ResistSense \| Genome Firewall<\/title>/i);
-  assert.match(html, /Predict · Challenge · Abstain/);
-  assert.match(html, /Analizar un FASTA/);
-  assert.match(html, /No-call/);
-  assert.match(html, /pruebas de laboratorio/i);
-  assert.match(html, /og\.png/);
+  assert.match(html, /Predict .* Challenge .* Abstain/);
+  assert.match(html, /See resistance before confidence becomes risk/);
+  assert.match(html, /Upload bacterial genome/);
+  assert.match(html, /Supported bacterium/);
+  assert.match(html, /Escherichia coli/);
+  assert.match(html, /no-call/i);
+  assert.match(html, /laboratory susceptibility testing/i);
+  assert.match(html, /og-cinematic\.png/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
 
@@ -40,8 +43,11 @@ test("frontend delegates scientific decisions to the API", async () => {
   assert.match(page, /NEXT_PUBLIC_API_URL/);
   assert.match(page, /\/api\/v1\/analyze/);
   assert.match(page, /\/api\/v1\/prediction-autopsy/);
-  assert.match(page, /Prediction Autopsy/);
-  assert.match(page, /Error residual/);
+  assert.match(page, /Prediction autopsy/i);
+  assert.match(page, /Residual error/);
+  assert.match(page, /BioSimulation/);
+  assert.match(page, /Run genomic assessment/);
+  assert.match(page, /Antibiotic assessments/);
   assert.match(page, /type="file"/);
   assert.doesNotMatch(page, /Math\.random|mockProbability|fakeResult/i);
   assert.match(layout, /ResistSense \| Genome Firewall/);

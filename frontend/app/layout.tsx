@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
   const title = "ResistSense | Genome Firewall";
   const description =
-    "Defensive antimicrobial-resistance research prototype that predicts, challenges and abstains.";
+    "A guarded genomic AMR evidence system that predicts, challenges and abstains.";
   return {
     title,
     description,
@@ -24,13 +24,13 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: `${origin}/og.png`, width: 1732, height: 909 }],
+      images: [{ url: `${origin}/og-cinematic.png`, width: 1536, height: 1024 }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`${origin}/og.png`],
+      images: [`${origin}/og-cinematic.png`],
     },
   };
 }
@@ -39,7 +39,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
+    <html lang="en">
       <body>{children}</body>
     </html>
   );

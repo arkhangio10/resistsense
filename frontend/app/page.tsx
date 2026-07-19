@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 
 type Marker = {
@@ -9,9 +10,11 @@ type Marker = {
   subclass?: string | null;
 };
 
+type FinalStatus = "probable_failure" | "probable_efficacy" | "no_call";
+
 type DrugResult = {
   antibiotic: string;
-  final_status: "probable_failure" | "probable_efficacy" | "no_call";
+  final_status: FinalStatus;
   calibrated_probability_resistant: number | null;
   confidence: number | null;
   evidence_level: string;
@@ -82,7 +85,7 @@ type AutopsyCase = {
   model_label: "susceptible" | "resistant";
   probability_resistant: number;
   model_confidence: number;
-  final_status: "probable_failure" | "probable_efficacy" | "no_call";
+  final_status: FinalStatus;
   expert_probabilities: Record<string, number>;
   model_disagreement: number;
   conformal_set: string[];
@@ -111,11 +114,39 @@ type PredictionAutopsy = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-const label: Record<DrugResult["final_status"], string> = {
-  probable_failure: "Probable falla",
-  probable_efficacy: "Probable eficacia",
+const BioSimulation = dynamic(() => import("../components/BioSimulation"), {
+  ssr: false,
+  loading: () => <div className="simulation-loading">Initializing specimen view…</div>,
+});
+
+const STATUS_LABEL: Record<FinalStatus, string> = {
+  probable_failure: "Probable resistance",
+  probable_efficacy: "Probable susceptibility",
   no_call: "No-call",
 };
+
+const STATUS_CLASS: Record<FinalStatus, string> = {
+  probable_failure: "resistant",
+  probable_efficacy: "susceptible",
+  no_call: "no-call",
+};
+
+const FALLBACK_ANTIBIOTICS = [
+  "ampicillin",
+  "ciprofloxacin",
+  "cefotaxime",
+  "gentamicin",
+  "trimethoprim/sulfamethoxazole",
+];
+
+const BARRIERS = [
+  ["01", "Genome quality", "Reject incomplete, atypical, or ambiguous assemblies."],
+  ["02", "Molecular target", "Never infer susceptibility from marker absence alone."],
+  ["03", "Distribution shift", "Measure proximity to genetic groups used for training."],
+  ["04", "Model agreement", "Challenge conclusions when independent experts disagree."],
+  ["05", "Calibration", "Require confidence to match observed performance."],
+  ["06", "Conformal set", "Ambiguous evidence automatically becomes a no-call."],
+];
 
 const formatDrug = (name: string) =>
   name
@@ -123,11 +154,11 @@ const formatDrug = (name: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join("/");
 
-const formatPhenotype = (name: "susceptible" | "resistant") =>
-  name === "resistant" ? "Resistente" : "Sensible";
-
 const percent = (value: number | null) =>
   value === null ? "—" : `${Math.round(value * 100)}%`;
+
+const formatPhenotype = (value: "susceptible" | "resistant") =>
+  value === "resistant" ? "Resistant" : "Susceptible";
 
 export default function Home() {
   const [readiness, setReadiness] = useState<Readiness | null>(null);
@@ -135,6 +166,7 @@ export default function Home() {
   const [autopsy, setAutopsy] = useState<PredictionAutopsy | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [visualizedAntibiotic, setVisualizedAntibiotic] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
@@ -155,20 +187,26 @@ export default function Home() {
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: DatasetAudit | null) => setAudit(payload))
       .catch(() => setAudit(null));
-    fetch(`${API_URL}/api/v1/prediction-autopsy`, {
-      signal: controller.signal,
-    })
+    fetch(`${API_URL}/api/v1/prediction-autopsy`, { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: PredictionAutopsy | null) => setAutopsy(payload))
       .catch(() => setAutopsy(null));
     return () => controller.abort();
   }, []);
 
+  const antibiotics = readiness?.antibiotics || FALLBACK_ANTIBIOTICS;
   const modelCount = useMemo(
     () => Object.values(readiness?.models || {}).filter(Boolean).length,
     [readiness],
   );
-
+  const visualizedResult = useMemo(() => {
+    if (!analysis) return null;
+    return (
+      analysis.results.find(
+        (result) => result.antibiotic === visualizedAntibiotic,
+      ) || analysis.results[0] || null
+    );
+  }, [analysis, visualizedAntibiotic]);
   const autopsyTotals = useMemo(
     () =>
       Object.values(autopsy?.summary || {}).reduce(
@@ -186,6 +224,7 @@ export default function Home() {
     const selected = event.target.files?.[0] || null;
     setFile(selected);
     setAnalysis(null);
+    setVisualizedAntibiotic("");
     setError(null);
   };
 
@@ -205,414 +244,341 @@ export default function Home() {
         const detail =
           typeof payload.detail === "string"
             ? payload.detail
-            : payload.detail?.message || "No se pudo analizar el FASTA.";
+            : payload.detail?.message || "The FASTA could not be analyzed.";
         throw new Error(detail);
       }
-      setAnalysis(payload as Analysis);
+      const completedAnalysis = payload as Analysis;
+      setAnalysis(completedAnalysis);
+      setVisualizedAntibiotic(completedAnalysis.results[0]?.antibiotic || "");
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
-          : "No se pudo conectar con el pipeline.",
+          : "The analysis pipeline could not be reached.",
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const antibiotics =
-    readiness?.antibiotics || [
-      "ampicillin",
-      "ciprofloxacin",
-      "cefotaxime",
-      "gentamicin",
-      "trimethoprim/sulfamethoxazole",
-    ];
-
   return (
-    <main>
-      <header className="topbar">
-        <a className="brand" href="#inicio" aria-label="ResistSense inicio">
-          <span className="brand-mark" aria-hidden="true">
-            RS
-          </span>
-          <span>
+    <main className="resistsense-shell">
+      <section className="lab-frame" id="home">
+        <header className="lab-topbar">
+          <a className="lab-brand" href="#home" aria-label="ResistSense home">
+            <span className="lab-brand-mark" aria-hidden="true" />
             <strong>ResistSense</strong>
-            <small>Genome Firewall</small>
+          </a>
+          <span className="lab-mode">Genome Firewall / Analysis 01</span>
+          <nav className="lab-nav" aria-label="Main navigation">
+            <a href="#evidence">Evidence</a>
+            <a href="#validation">Validation</a>
+            <a href="#safety">Safety</a>
+          </nav>
+          <span className={`lab-session ${backendOnline ? "online" : "offline"}`}>
+            {backendOnline === null
+              ? "Checking environment"
+              : backendOnline
+                ? "Research environment online"
+                : "Research environment offline"}
           </span>
-        </a>
-        <nav aria-label="Navegación principal">
-          <a href="#analisis">Análisis</a>
-          <a href="#resultados">Resultados</a>
-          <a href="#autopsia">Autopsia</a>
-          <a href="#seguridad">Seguridad</a>
-        </nav>
-        <span className="research-pill">Research prototype</span>
-      </header>
+        </header>
 
-      <section className="hero" id="inicio">
-        <div className="hero-copy">
-          <p className="eyebrow">Predict · Challenge · Abstain</p>
-          <h1>
-            Detectamos resistencia.
-            <span> Bloqueamos confianza insegura.</span>
-          </h1>
-          <p className="hero-lead">
-            Un firewall defensivo que convierte un genoma reconstruido de
-            <em> Escherichia coli</em> en evidencia auditable por antibiótico,
-            con una salida honesta cuando no existe información suficiente.
-          </p>
-          <div className="hero-actions">
-            <a className="primary-link" href="#analisis">
-              Analizar un FASTA
-            </a>
-            <a className="secondary-link" href="#seguridad">
-              Ver barreras de seguridad
-            </a>
-          </div>
+        <div className="lab-workspace">
+          <section className="lab-intro" aria-labelledby="main-headline">
+            <p className="lab-eyebrow">Genomic AMR evidence</p>
+            <h1 id="main-headline">See resistance before confidence becomes risk.</h1>
+            <p className="lab-lead">
+              A guarded readout of genetic evidence—designed to expose
+              uncertainty, not hide it.
+            </p>
+
+            <div className="specimen-scope">
+              <span>Supported bacterium</span>
+              <div>
+                <em>Escherichia coli</em>
+                <strong>Validated scope</strong>
+              </div>
+            </div>
+
+            <label className={`compact-upload ${file ? "has-file" : ""}`}>
+              <input
+                type="file"
+                accept=".fa,.fna,.fasta,text/plain"
+                onChange={handleFile}
+              />
+              <span className="compact-upload-icon" aria-hidden="true">↑</span>
+              <span>
+                <strong>{file ? file.name : "Upload bacterial genome"}</strong>
+                <small>
+                  {file
+                    ? `${(file.size / 1_000_000).toFixed(2)} MB · ready`
+                    : "FASTA · .fna, .fa, .fasta · max 15 MB"}
+                </small>
+              </span>
+            </label>
+
+            <button
+              className="run-analysis"
+              type="button"
+              onClick={analyze}
+              disabled={!file || loading || backendOnline === false}
+            >
+              {loading ? "Running genome firewall…" : "Run genomic assessment"}
+              <span aria-hidden="true">→</span>
+            </button>
+            {error && <p className="lab-error">{error}</p>}
+          </section>
+
+          <section
+            className={`specimen-stage ${loading ? "is-loading" : ""}`}
+            aria-label="Bacterial response visualization"
+          >
+            <div className="stage-caption">
+              <strong>Specimen view</strong>
+              <span>{analysis ? "model-driven response" : "awaiting genome"}</span>
+            </div>
+            <BioSimulation
+              antibiotic={visualizedResult?.antibiotic || "Awaiting genome"}
+              confidence={visualizedResult?.confidence ?? null}
+              outcome={visualizedResult?.final_status || "idle"}
+            />
+            {loading && (
+              <div className="analysis-sequence" role="status" aria-live="polite">
+                <div className="analysis-organism" aria-hidden="true">
+                  <span className="analysis-cell" />
+                  <i />
+                  <i />
+                  <i />
+                </div>
+                <div className="analysis-sequence-copy">
+                  <span>Genome firewall active</span>
+                  <strong>Interrogating the assembly</strong>
+                  <p>
+                    Resistance markers, model agreement and confidence gates
+                    are being evaluated.
+                  </p>
+                </div>
+                <ol aria-label="Analysis stages">
+                  <li>Reading genome quality</li>
+                  <li>Scanning AMR evidence</li>
+                  <li>Challenging model consensus</li>
+                  <li>Calibrating final confidence</li>
+                </ol>
+              </div>
+            )}
+            <div className="stage-metadata">
+              <span>Organism <strong>E. coli</strong></span>
+              <span>
+                Genome <strong>{analysis ? `${(analysis.qc.total_length_bp / 1_000_000).toFixed(2)} Mb` : "—"}</strong>
+              </span>
+              <span>QC <strong>{analysis ? (analysis.qc.passed ? "Passed" : "Failed") : "Pending"}</strong></span>
+            </div>
+          </section>
+
+          <aside className="assessment-rail" aria-labelledby="assessment-title">
+            <div className="assessment-head">
+              <div>
+                <span>Evidence readout</span>
+                <h2 id="assessment-title">Antibiotic assessments</h2>
+              </div>
+              <strong>{String(antibiotics.length).padStart(2, "0")} / 05</strong>
+            </div>
+
+            <div className="assessment-list">
+              {antibiotics.map((antibiotic, index) => {
+                const result = analysis?.results.find(
+                  (item) => item.antibiotic === antibiotic,
+                );
+                const selected = visualizedResult?.antibiotic === antibiotic;
+                return (
+                  <button
+                    type="button"
+                    className={`assessment-row ${
+                      result ? STATUS_CLASS[result.final_status] : "pending"
+                    } ${selected ? "active" : ""}`}
+                    key={antibiotic}
+                    onClick={() => result && setVisualizedAntibiotic(antibiotic)}
+                    disabled={!result}
+                    aria-pressed={selected}
+                  >
+                    <span className="assessment-index">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="assessment-copy">
+                      <strong>{formatDrug(antibiotic)}</strong>
+                      <small>{result ? STATUS_LABEL[result.final_status] : "Awaiting genome"}</small>
+                    </span>
+                    <span className="assessment-confidence">
+                      {result ? percent(result.confidence) : "—"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="assessment-legend">
+              <span className="resistant">Resistant</span>
+              <span className="susceptible">Susceptible</span>
+              <span className="no-call">Uncertain</span>
+            </div>
+          </aside>
         </div>
-        <aside className="system-card" aria-label="Estado del sistema">
-          <div className="system-card-head">
-            <span>Estado operativo</span>
-            <span
-              className={`status-dot ${backendOnline ? "online" : "offline"}`}
-            >
-              {backendOnline === null
-                ? "Verificando"
-                : backendOnline
-                  ? "API conectada"
-                  : "API sin conexión"}
-            </span>
+
+        <footer className="lab-footer">
+          <p>
+            <strong>Research prototype.</strong> Results are provisional genomic
+            evidence, not a treatment recommendation. Standard laboratory
+            susceptibility testing is required.
+          </p>
+          <div>
+            <span>Pipeline<strong>AMRFinder+ / ML</strong></span>
+            <span>Models<strong>{modelCount} / 5 ready</strong></span>
+            <span>Policy<strong>Fail-safe no-call</strong></span>
           </div>
-          <div className="readiness-score">
-            <strong>{modelCount}</strong>
-            <span>/ 5 modelos calibrados</span>
+          <a href={analysis ? "#evidence" : "#validation"}>
+            {analysis ? "Inspect evidence" : "Inspect validation"} →
+          </a>
+        </footer>
+      </section>
+
+      {analysis && visualizedResult && (
+        <section className="evidence-inspector" id="evidence">
+          <header className="section-intro">
+            <div>
+              <span>Selected assessment / {analysis.analysis_id.slice(0, 8)}</span>
+              <h2>{formatDrug(visualizedResult.antibiotic)}</h2>
+            </div>
+            <strong className={`evidence-status ${STATUS_CLASS[visualizedResult.final_status]}`}>
+              {STATUS_LABEL[visualizedResult.final_status]}
+            </strong>
+          </header>
+
+          <div className="evidence-layout">
+            <article className="evidence-narrative">
+              <p>{visualizedResult.explanation}</p>
+              <div className="signal-pills">
+                <span>Evidence {visualizedResult.evidence_level}</span>
+                <span>Target {visualizedResult.target_status}</span>
+                <span>OOD {percent(visualizedResult.ood_score)}</span>
+                <span>Confidence {percent(visualizedResult.confidence)}</span>
+              </div>
+              {visualizedResult.known_markers.length > 0 && (
+                <div className="marker-readout">
+                  <span>Observed markers</span>
+                  <strong>
+                    {visualizedResult.known_markers
+                      .map((marker) => marker.symbol)
+                      .join(" · ")}
+                  </strong>
+                </div>
+              )}
+              {visualizedResult.no_call_reasons.length > 0 && (
+                <div className="marker-readout warning-readout">
+                  <span>No-call triggers</span>
+                  <strong>
+                    {visualizedResult.no_call_reasons
+                      .map((reason) => reason.replaceAll("_", " "))
+                      .join(" · ")}
+                  </strong>
+                </div>
+              )}
+            </article>
+
+            <div className="model-readout">
+              <span>Model resistance probability</span>
+              {Object.entries(visualizedResult.model_probabilities).map(
+                ([model, value]) => (
+                  <div key={model}>
+                    <p><span>{model.replaceAll("_", " ")}</span><strong>{percent(value)}</strong></p>
+                    <i><b style={{ width: `${value * 100}%` }} /></i>
+                  </div>
+                ),
+              )}
+            </div>
+
+            <div className="qc-readout">
+              <span>Genome quality</span>
+              <div><small>Length</small><strong>{(analysis.qc.total_length_bp / 1_000_000).toFixed(2)} Mb</strong></div>
+              <div><small>Contigs</small><strong>{analysis.qc.contigs}</strong></div>
+              <div><small>Ambiguous</small><strong>{percent(analysis.qc.ambiguous_fraction)}</strong></div>
+              <div><small>AMRFinder+</small><strong>{analysis.annotation.available ? "Available" : "Unavailable"}</strong></div>
+            </div>
           </div>
-          <div className="scope-row">
-            <span>Especie</span>
-            <strong>E. coli</strong>
-          </div>
-          <div className="scope-row">
-            <span>Política incompleta</span>
-            <strong>No-call</strong>
-          </div>
-          <div className="component-status">
-            <span className={readiness?.amrfinderplus ? "ready" : "pending"}>
-              AMRFinderPlus
-            </span>
-            <span
-              className={
-                readiness?.independent_target_annotator ? "ready" : "pending"
-              }
-            >
-              Diana independiente
-            </span>
+          <p className="evidence-disclaimer">{analysis.disclaimer}</p>
+        </section>
+      )}
+
+      <section className="validation-section" id="validation">
+        <header className="section-intro validation-heading">
+          <div>
+            <span>Validation record / frozen grouped test</span>
+            <h2>Evidence that can be challenged.</h2>
           </div>
           <p>
-            El sistema no inventa resultados: si falta una diana, anotación,
-            calibración o modelo, se abstiene.
+            Laboratory-only BV-BRC labels, conflict removal, grouped genetic
+            splits, calibration, and visible residual errors.
           </p>
-        </aside>
-      </section>
+        </header>
 
-      <section className="analysis-shell" id="analisis">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Genome reader</p>
-            <h2>Del FASTA a una decisión trazable</h2>
-          </div>
-          <span className="step-indicator">01 / Carga y validación</span>
+        <div className="validation-metrics">
+          <article><span>Curated genomes</span><strong>{audit?.unique_genomes.toLocaleString("en-US") || "2,909"}</strong><small>E. coli assemblies</small></article>
+          <article><span>Genetic clusters</span><strong>{audit?.genetic_clusters.toLocaleString("en-US") || "1,306"}</strong><small>kept within partitions</small></article>
+          <article><span>Base errors</span><strong>{autopsyTotals.errors || 68}</strong><small>never hidden</small></article>
+          <article className="metric-accent"><span>Errors blocked</span><strong>{autopsyTotals.prevented || 55}</strong><small>by the firewall</small></article>
+          <article className="metric-alert"><span>Residual errors</span><strong>{autopsyTotals.escaped || 13}</strong><small>visible for audit</small></article>
         </div>
 
-        <div className="upload-grid">
-          <label className={`dropzone ${file ? "has-file" : ""}`}>
-            <input
-              type="file"
-              accept=".fa,.fna,.fasta,text/plain"
-              onChange={handleFile}
-            />
-            <span className="upload-icon" aria-hidden="true">
-              ↑
-            </span>
-            <strong>{file ? file.name : "Selecciona un genoma reconstruido"}</strong>
-            <span>
-              {file
-                ? `${(file.size / 1_000_000).toFixed(2)} MB · listo para validar`
-                : "Archivo FASTA en formato .fa, .fna o .fasta · máximo 15 MB"}
-            </span>
-          </label>
-
-          <div className="preflight-card">
-            <h3>Controles antes de predecir</h3>
-            <ul>
-              <li>Formato, longitud, contigs y bases ambiguas</li>
-              <li>Genes y mutaciones mediante AMRFinderPlus</li>
-              <li>Similitud con grupos usados en entrenamiento</li>
-              <li>Calibración, conformal y verificación de diana</li>
-            </ul>
-            <button type="button" onClick={analyze} disabled={!file || loading}>
-              {loading ? "Atravesando el firewall…" : "Ejecutar análisis seguro"}
-            </button>
-            {error && <p className="error-message">{error}</p>}
-          </div>
-        </div>
-      </section>
-
-      {analysis && (
-        <section className="results-section" id="resultados">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Decision report</p>
-              <h2>Tribunal de evidencia</h2>
-            </div>
-            <span className={`qc-badge ${analysis.qc.passed ? "pass" : "fail"}`}>
-              QC {analysis.qc.passed ? "aprobado" : "no aprobado"}
-            </span>
-          </div>
-
-          <div className="qc-strip">
-            <div>
-              <span>Longitud</span>
-              <strong>{(analysis.qc.total_length_bp / 1_000_000).toFixed(2)} Mb</strong>
-            </div>
-            <div>
-              <span>Contigs</span>
-              <strong>{analysis.qc.contigs}</strong>
-            </div>
-            <div>
-              <span>Bases ambiguas</span>
-              <strong>{percent(analysis.qc.ambiguous_fraction)}</strong>
-            </div>
-            <div>
-              <span>AMRFinderPlus</span>
-              <strong>{analysis.annotation.available ? "Disponible" : "No disponible"}</strong>
-            </div>
-          </div>
-
-          <div className="result-grid">
-            {analysis.results.map((result) => (
-              <article className={`drug-card ${result.final_status}`} key={result.antibiotic}>
-                <div className="drug-card-head">
-                  <div>
-                    <span>Antibiótico</span>
-                    <h3>{formatDrug(result.antibiotic)}</h3>
-                  </div>
-                  <span className="result-badge">{label[result.final_status]}</span>
-                </div>
-                <div className="confidence-row">
-                  <div>
-                    <span>Confianza calibrada</span>
-                    <strong>{percent(result.confidence)}</strong>
-                  </div>
-                  <div>
-                    <span>Evidencia</span>
-                    <strong>{result.evidence_level.slice(0, 1)}</strong>
-                  </div>
-                  <div>
-                    <span>Diana</span>
-                    <strong>{result.target_status}</strong>
-                  </div>
-                </div>
-                <p>{result.explanation}</p>
-                {result.no_call_reasons.length > 0 && (
-                  <div className="reason-list">
-                    {result.no_call_reasons.map((reason) => (
-                      <span key={reason}>{reason.replaceAll("_", " ")}</span>
-                    ))}
-                  </div>
-                )}
-                {Object.entries(result.model_probabilities).map(([model, value]) => (
-                  <div className="model-vote" key={model}>
-                    <span>{model.replaceAll("_", " ")}</span>
-                    <div>
-                      <i style={{ width: `${value * 100}%` }} />
-                    </div>
-                    <strong>{percent(value)}</strong>
-                  </div>
-                ))}
-              </article>
-            ))}
-          </div>
-
-          <div className="disclaimer">{analysis.disclaimer}</div>
-        </section>
-      )}
-
-      {!analysis && (
-        <section className="coverage-section" id="resultados">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Scope control</p>
-              <h2>Cinco decisiones, una política de seguridad</h2>
-            </div>
-            <span className="step-indicator">E. coli · taxon 562</span>
-          </div>
-          <div className="coverage-list">
-            {antibiotics.map((antibiotic, index) => (
-              <div key={antibiotic}>
+        {audit && (
+          <div className="cohort-register" aria-label="Phenotype balance">
+            {audit.antibiotics.map((item, index) => (
+              <div key={item.antibiotic}>
                 <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{formatDrug(antibiotic)}</strong>
-                <em>{readiness?.models[antibiotic] ? "Modelo listo" : "Pendiente"}</em>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {audit && (
-        <section className="evidence-section" id="vigilancia">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Verified cohort</p>
-              <h2>Cohorte autocurada con particiones congeladas</h2>
-            </div>
-            <span className="step-indicator">BV-BRC · Laboratory Method</span>
-          </div>
-          <p className="audit-warning">
-            Los organizadores permiten construir un dataset propio. ResistSense
-            conserva solamente mediciones de laboratorio, excluye conflictos y
-            mantiene grupos genéticos completos dentro de cada partición.
-          </p>
-          <div className="audit-kpis">
-            <div><strong>{audit.unique_genomes.toLocaleString("es-PE")}</strong><span>genomas únicos</span></div>
-            <div><strong>{audit.genetic_clusters.toLocaleString("es-PE")}</strong><span>clústeres cgMLST</span></div>
-            <div><strong>{audit.preliminary_qc_pass_pct.toFixed(2)}%</strong><span>pasa QC de metadatos</span></div>
-          </div>
-          <div className="audit-table" role="table" aria-label="Balance fenotípico">
-            <div className="audit-table-head" role="row">
-              <span>Antibiótico</span><span>Pares</span><span>Resistentes</span><span>R %</span>
-            </div>
-            {audit.antibiotics.map((item) => (
-              <div role="row" key={item.antibiotic}>
                 <strong>{formatDrug(item.antibiotic)}</strong>
-                <span>{item.eligible_pairs.toLocaleString("es-PE")}</span>
-                <span>{item.resistant_pairs.toLocaleString("es-PE")}</span>
-                <div className="prevalence">
-                  <i style={{ width: `${item.resistant_pct}%` }} />
-                  <em>{item.resistant_pct.toFixed(1)}%</em>
-                </div>
+                <small>{item.eligible_pairs.toLocaleString("en-US")} laboratory pairs</small>
+                <i><b style={{ width: `${item.resistant_pct}%` }} /></i>
+                <em>{item.resistant_pct.toFixed(1)}% R</em>
               </div>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {autopsy && (
-        <section className="autopsy-section" id="autopsia">
-          <div className="section-heading">
+        <section className="autopsy-section" id="autopsy">
+          <header className="section-intro">
             <div>
-              <p className="eyebrow">Prediction Autopsy</p>
-              <h2>Los errores no se esconden: se investigan</h2>
+              <span>Prediction autopsy / held-out cases</span>
+              <h2>Failure remains part of the interface.</h2>
             </div>
-            <span className="step-indicator">Test congelado · casos reales</span>
-          </div>
-
-          <p className="autopsy-intro">
-            Cada expediente proviene de un genoma del test que nunca participó
-            en entrenamiento ni calibración. Mostramos tanto errores detenidos
-            por el firewall como errores residuales que lograron atravesarlo.
-          </p>
-
-          <div className="autopsy-kpis">
-            <div>
-              <strong>{autopsyTotals.errors}</strong>
-              <span>errores del modelo base</span>
-            </div>
-            <div>
-              <strong>{autopsyTotals.prevented}</strong>
-              <span>bloqueados por el firewall</span>
-            </div>
-            <div>
-              <strong>{autopsyTotals.escaped}</strong>
-              <span>errores residuales emitidos</span>
-            </div>
-          </div>
-
+          </header>
           <div className="autopsy-grid">
-            {autopsy.cases.map((item) => (
-              <article
-                className={`autopsy-card ${item.category}`}
-                key={item.case_id}
-              >
-                <div className="autopsy-card-head">
-                  <div>
-                    <span>{formatDrug(item.antibiotic)}</span>
-                    <h3>{item.sample_id}</h3>
-                    <small>Grupo genético {item.genetic_group}</small>
-                  </div>
-                  <em>
-                    {item.category === "prevented_error"
-                      ? "Error bloqueado"
-                      : "Error residual"}
-                  </em>
+            {autopsy.cases.slice(0, 3).map((item) => (
+              <article className={item.category} key={item.case_id}>
+                <div>
+                  <span>{formatDrug(item.antibiotic)}</span>
+                  <strong>{item.sample_id}</strong>
+                  <em>{item.category === "prevented_error" ? "Blocked error" : "Residual error"}</em>
                 </div>
-
-                <div className="autopsy-comparison">
-                  <div>
-                    <span>Laboratorio</span>
-                    <strong>{formatPhenotype(item.laboratory_label)}</strong>
-                  </div>
-                  <b aria-hidden="true">≠</b>
-                  <div>
-                    <span>Modelo</span>
-                    <strong>{formatPhenotype(item.model_label)}</strong>
-                  </div>
-                  <div>
-                    <span>Confianza</span>
-                    <strong>{percent(item.model_confidence)}</strong>
-                  </div>
-                </div>
-
-                <div className="autopsy-signals">
-                  <span>OOD {percent(item.ood_score)}</span>
-                  <span>Diana {item.target_status}</span>
-                  <span>Salida {item.final_status.replaceAll("_", " ")}</span>
-                </div>
-
-                {item.no_call_reasons.length > 0 && (
-                  <div className="reason-list">
-                    {item.no_call_reasons.map((reason) => (
-                      <span key={reason}>{reason.replaceAll("_", " ")}</span>
-                    ))}
-                  </div>
-                )}
-
-                {item.known_markers.length > 0 && (
-                  <p className="autopsy-markers">
-                    Evidencia observada: {item.known_markers.join(", ")}
-                  </p>
-                )}
-
-                <p className="autopsy-lesson">
-                  {item.category === "prevented_error"
-                    ? "La abstención evitó publicar una conclusión incorrecta."
-                    : "Este fallo atravesó todas las barreras y permanece visible para auditoría."}
+                <p>
+                  Laboratory <strong>{formatPhenotype(item.laboratory_label)}</strong>
+                  <b>≠</b>
+                  Model <strong>{formatPhenotype(item.model_label)}</strong>
                 </p>
+                <small>Confidence {percent(item.model_confidence)} · OOD {percent(item.ood_score)} · Target {item.target_status}</small>
               </article>
             ))}
           </div>
-
-          <div className="disclaimer">{autopsy.disclaimer}</div>
+          <p className="autopsy-note">{autopsy.disclaimer}</p>
         </section>
       )}
 
-      <section className="firewall-section" id="seguridad">
-        <div className="section-heading light">
+      <section className="safety-section" id="safety">
+        <header className="section-intro">
           <div>
-            <p className="eyebrow">Confidence firewall</p>
-            <h2>Seis barreras antes de publicar una conclusión</h2>
+            <span>Confidence firewall / six barriers</span>
+            <h2>Abstention is a product feature.</h2>
           </div>
-          <span className="step-indicator">Safety by construction</span>
-        </div>
-        <div className="barrier-grid">
-          {[
-            ["01", "Calidad genómica", "Rechaza ensamblajes incompletos, atípicos o ambiguos."],
-            ["02", "Diana molecular", "Nunca asume eficacia por ausencia de marcadores."],
-            ["03", "Fuera de distribución", "Mide cercanía a los grupos del entrenamiento."],
-            ["04", "Desacuerdo", "Compara las probabilidades de cada experto."],
-            ["05", "Calibración", "La confianza debe corresponder con rendimiento real."],
-            ["06", "Conformal", "Un conjunto ambiguo activa automáticamente no-call."],
-          ].map(([number, title, description]) => (
+        </header>
+        <div className="barrier-register">
+          {BARRIERS.map(([number, title, description]) => (
             <article key={number}>
               <span>{number}</span>
               <h3>{title}</h3>
@@ -622,16 +588,10 @@ export default function Home() {
         </div>
       </section>
 
-      <footer>
-        <div className="brand footer-brand">
-          <span className="brand-mark" aria-hidden="true">RS</span>
-          <span><strong>ResistSense</strong><small>Genome Firewall</small></span>
-        </div>
-        <p>
-          Prototipo de investigación defensiva. No identifica especies, no
-          recomienda tratamientos y no sustituye pruebas de laboratorio.
-        </p>
-        <span>Predict · Challenge · Abstain</span>
+      <footer className="site-footer">
+        <div className="lab-brand"><span className="lab-brand-mark" aria-hidden="true" /><strong>ResistSense</strong></div>
+        <p>Predict · Challenge · Abstain</p>
+        <span>Research use only · Laboratory confirmation required</span>
       </footer>
     </main>
   );
