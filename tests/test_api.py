@@ -255,6 +255,75 @@ def test_evidence_audit_falls_back_without_openai_key(monkeypatch) -> None:
     assert "short.fasta" not in json.dumps(payload)
 
 
+def test_evidence_audit_guard_requires_anonymous_browser_id(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("RESISTSENSE_OPENAI_USAGE_GUARD_ENABLED", "true")
+    scientific = request(
+        "POST",
+        "/api/v1/analyze",
+        files={"file": ("short.fasta", b">short\nACGTACGT\n", "text/plain")},
+    ).json()
+    response = request("POST", "/api/v1/evidence-audit", json=scientific)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source"] == "deterministic_fallback"
+    assert payload["fallback_reason"] == "openai_visitor_id_missing"
+    assert payload["quota"]["reason"] == "visitor_id_missing"
+    assert payload["audit"]["laboratory_confirmation_required"] is True
+
+
+def test_evidence_audit_guard_blocks_daily_limit_before_openai(monkeypatch) -> None:
+    from resistsense.openai_usage_guard import (
+        AuditQuotaDecision,
+        AuditQuotaStatus,
+    )
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("RESISTSENSE_OPENAI_USAGE_GUARD_ENABLED", "true")
+    blocked = AuditQuotaDecision(
+        allowed=False,
+        reservation_id=None,
+        reason="daily_limit_reached",
+        status=AuditQuotaStatus(
+            enabled=True,
+            available=True,
+            month_utc="2026-07",
+            monthly_budget_usd=5.0,
+            allocated_usd=0.2,
+            remaining_usd=4.8,
+            daily_request_limit=3,
+            daily_requests_used=3,
+            daily_requests_remaining=0,
+            reason="daily_limit_reached",
+        ),
+    )
+    monkeypatch.setattr(
+        "resistsense.api.reserve_openai_audit", lambda *args, **kwargs: blocked
+    )
+
+    def unexpected_openai_call(*args, **kwargs):
+        raise AssertionError("OpenAI must not be called after the daily limit")
+
+    monkeypatch.setattr("resistsense.api.audit_analysis", unexpected_openai_call)
+    scientific = request(
+        "POST",
+        "/api/v1/analyze",
+        files={"file": ("short.fasta", b">short\nACGTACGT\n", "text/plain")},
+    ).json()
+    response = request(
+        "POST",
+        "/api/v1/evidence-audit",
+        headers={
+            "X-ResistSense-Visitor-ID": "c5690b0f-207c-45a8-bf05-daf30f5303a9"
+        },
+        json=scientific,
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["fallback_reason"] == "openai_daily_limit_reached"
+    assert payload["quota"]["daily_requests_remaining"] == 0
+
+
 def test_auditor_safety_eval_executes_all_guardrail_cases() -> None:
     response = request("GET", "/api/v1/auditor-safety-eval")
     assert response.status_code == 200

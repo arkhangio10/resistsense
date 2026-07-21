@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ProjectConfig(BaseModel):
@@ -83,6 +83,22 @@ class FirewallConfig(BaseModel):
     require_amrfinderplus: bool = True
 
 
+class OpenAIUsageGuardConfig(BaseModel):
+    enabled: bool = True
+    monthly_budget_usd: float = Field(default=5.0, gt=0, le=1000)
+    daily_requests_per_browser: int = Field(default=3, ge=1, le=100)
+    max_input_characters: int = Field(default=20_000, ge=1000, le=200_000)
+    reservation_usd: float = Field(default=0.50, gt=0, le=100)
+    input_usd_per_million_tokens: float = Field(default=6.25, gt=0, le=1000)
+    output_usd_per_million_tokens: float = Field(default=30.0, gt=0, le=5000)
+
+    @model_validator(mode="after")
+    def reservation_fits_budget(self) -> "OpenAIUsageGuardConfig":
+        if self.reservation_usd > self.monthly_budget_usd:
+            raise ValueError("OpenAI audit reservation must fit the monthly budget")
+        return self
+
+
 class OpenAIAuditorConfig(BaseModel):
     enabled: bool = True
     model: str = "gpt-5.6-sol"
@@ -92,6 +108,9 @@ class OpenAIAuditorConfig(BaseModel):
     prompt_version: str = "evidence-conflict-auditor-v1"
     timeout_seconds: int = Field(default=30, gt=0, le=120)
     max_output_tokens: int = Field(default=1600, ge=256, le=4096)
+    usage_guard: OpenAIUsageGuardConfig = Field(
+        default_factory=OpenAIUsageGuardConfig
+    )
 
 
 class RuntimeConfig(BaseModel):

@@ -22,6 +22,13 @@ project-scoped monthly budget alerts at approximately USD 5 and automatically
 closes public ingress at approximately USD 10; the interface reports only a
 deduplicated anonymous-browser count.
 
+OpenAI usage is protected separately: the `gpt-5.6-sol` project alerts at 80%
+of its USD 5 monthly threshold, while the application atomically reserves and
+settles each audit against a USD 5 Firestore ledger. Each anonymous browser is
+limited to three audits per UTC day. Reaching either limit, losing quota
+storage, or exceeding the allowlisted payload size prevents the OpenAI request
+and returns the unchanged deterministic scientific report.
+
 ## Current status
 
 The BV-BRC laboratory-phenotype audit is reproducible. The 2,909-genome frozen
@@ -58,6 +65,7 @@ workflow:
   blockade; no-call remains visually neutral;
 - a human-review worklist that prioritizes no-calls without ranking therapies;
 - an executable 12-case adversarial suite around the GPT-5.6 boundary;
+- a fail-closed USD 5 OpenAI usage guard with per-browser daily limits;
 - an Evidence Passport containing sample, toolchain, policy, model, privacy,
   and frozen-split provenance; and
 - an exportable JSON evidence packet for reproducible handoff.

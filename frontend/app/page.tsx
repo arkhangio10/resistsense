@@ -164,6 +164,18 @@ type EvidenceAudit = {
     output_tokens: number;
     total_tokens: number;
   } | null;
+  quota: {
+    enabled: boolean;
+    available: boolean;
+    month_utc: string;
+    monthly_budget_usd: number;
+    allocated_usd: number | null;
+    remaining_usd: number | null;
+    daily_request_limit: number;
+    daily_requests_used: number | null;
+    daily_requests_remaining: number | null;
+    reason: string | null;
+  } | null;
   fallback_reason: string | null;
   safety_validation_passed: boolean;
   audit: {
@@ -256,6 +268,21 @@ type SystemProvenance = {
 type JudgeStep = 1 | 2 | 3 | 4;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const VISITOR_STORAGE_KEY = "resistsense-anonymous-browser-v1";
+
+const getOrCreateAnonymousVisitorId = (): string | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    let visitorId = window.localStorage.getItem(VISITOR_STORAGE_KEY);
+    if (!visitorId) {
+      visitorId = window.crypto.randomUUID();
+      window.localStorage.setItem(VISITOR_STORAGE_KEY, visitorId);
+    }
+    return visitorId;
+  } catch {
+    return null;
+  }
+};
 
 const BioSimulation = dynamic(() => import("../components/BioSimulation"), {
   ssr: false,
@@ -365,13 +392,8 @@ export default function Home() {
       .then((payload: SystemProvenance | null) => setSystemProvenance(payload))
       .catch(() => setSystemProvenance(null));
     try {
-      const storageKey = "resistsense-anonymous-browser-v1";
-      let visitorId = window.localStorage.getItem(storageKey);
-      if (!visitorId) {
-        visitorId = window.crypto.randomUUID();
-        window.localStorage.setItem(storageKey, visitorId);
-      }
-      fetch(`${API_URL}/api/v1/usage/visit`, {
+      const visitorId = getOrCreateAnonymousVisitorId();
+      if (visitorId) fetch(`${API_URL}/api/v1/usage/visit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ visitor_id: visitorId }),
@@ -517,9 +539,13 @@ export default function Home() {
     setAuditLoading(true);
     setEvidenceAudit(null);
     try {
+      const visitorId = getOrCreateAnonymousVisitorId();
       const response = await fetch(`${API_URL}/api/v1/evidence-audit`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(visitorId ? { "X-ResistSense-Visitor-ID": visitorId } : {}),
+        },
         body: JSON.stringify(completedAnalysis),
       });
       if (!response.ok) throw new Error("Evidence audit unavailable");
@@ -1056,6 +1082,20 @@ export default function Home() {
                     Response {evidenceAudit.request_id || evidenceAudit.response_id || "ID unavailable"}
                     {evidenceAudit.usage ? ` · ${evidenceAudit.usage.total_tokens} tokens` : ""}
                   </small>
+                )}
+                {evidenceAudit.quota?.available && (
+                  <small className="auditor-telemetry">
+                    OpenAI guard · ${evidenceAudit.quota.remaining_usd?.toFixed(2)} remaining this month
+                    {evidenceAudit.quota.daily_requests_remaining !== null
+                      ? ` · ${evidenceAudit.quota.daily_requests_remaining}/${evidenceAudit.quota.daily_request_limit} audits remaining today`
+                      : ""}
+                  </small>
+                )}
+                {evidenceAudit.fallback_reason === "openai_usage_limit_reached" && (
+                  <small className="auditor-telemetry">Monthly OpenAI safety budget reached. No model request was made.</small>
+                )}
+                {evidenceAudit.fallback_reason === "openai_daily_limit_reached" && (
+                  <small className="auditor-telemetry">Daily browser audit limit reached. No model request was made.</small>
                 )}
               </article>
               <div className="auditor-checks">

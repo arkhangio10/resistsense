@@ -24,6 +24,9 @@
 - Evidence Passport with sample digest, annotation runtime, policy digest, model coverage, OpenAI privacy boundary, and frozen-split provenance.
 - Downloadable JSON separating scientific report from optional language-model audit.
 - Single-service Google Cloud Run deployment with Secret Manager and bounded scaling.
+- Transactional Firestore enforcement for a USD 5 OpenAI audit budget, a
+  three-audits-per-browser daily limit, payload bounds, and machine-readable
+  fail-closed reasons.
 - Apache-2.0 project license and third-party notices.
 
 ## Human and tool roles

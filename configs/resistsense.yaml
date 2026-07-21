@@ -68,6 +68,15 @@ openai_auditor:
   prompt_version: evidence-conflict-auditor-v1
   timeout_seconds: 30
   max_output_tokens: 1600
+  usage_guard:
+    enabled: true
+    monthly_budget_usd: 5.0
+    daily_requests_per_browser: 3
+    max_input_characters: 20000
+    reservation_usd: 0.50
+    # Conservative 1.25x reservation accounts for the maximum cache-write rate.
+    input_usd_per_million_tokens: 6.25
+    output_usd_per_million_tokens: 30.0
 
 runtime:
   model_dir: artifacts/runtime/models
