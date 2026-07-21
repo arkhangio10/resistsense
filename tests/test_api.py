@@ -34,6 +34,30 @@ def test_health_and_scope() -> None:
     assert len(scope.json()["antibiotics"]) == 5
 
 
+def test_usage_endpoint_accepts_only_anonymous_uuid(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "resistsense.api.record_anonymous_visitor",
+        lambda visitor_id: {
+            "available": True,
+            "unique_anonymous_browsers": 7,
+            "new_visitor": True,
+            "reason": None,
+            "privacy": "No personal data is stored.",
+        },
+    )
+    response = request(
+        "POST",
+        "/api/v1/usage/visit",
+        json={"visitor_id": "c5690b0f-207c-45a8-bf05-daf30f5303a9"},
+    )
+    assert response.status_code == 200
+    assert response.json()["unique_anonymous_browsers"] == 7
+    assert response.json()["new_visitor"] is True
+    assert request(
+        "POST", "/api/v1/usage/visit", json={"visitor_id": "not-a-uuid"}
+    ).status_code == 422
+
+
 def test_verified_demo_is_precomputed_traceable_and_safe() -> None:
     response = request("GET", "/api/v1/verified-demo")
     assert response.status_code == 200

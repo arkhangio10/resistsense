@@ -9,7 +9,9 @@ param(
     [string]$RuntimeServiceAccountName = "resistsense-runner"
 )
 
-$ErrorActionPreference = "Stop"
+# Windows PowerShell 5 surfaces normal gcloud progress written to stderr as a
+# NativeCommandError. Native command exit codes are checked explicitly below.
+$ErrorActionPreference = "Continue"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location -LiteralPath $projectRoot
 
@@ -97,8 +99,9 @@ gcloud.cmd run deploy $ServiceName `
     --min-instances 0 `
     --max-instances 1 `
     --timeout 900 `
+    --startup-probe "httpGet.path=/health,httpGet.port=8080,periodSeconds=2,timeoutSeconds=2,failureThreshold=60" `
     --service-account $serviceAccount `
-    --set-env-vars "AMRFINDER_THREADS=2" `
+    --set-env-vars "AMRFINDER_THREADS=2,RESISTSENSE_USAGE_COUNTER_ENABLED=true" `
     --set-secrets "OPENAI_API_KEY=$OpenAISecretName`:$secretVersion" `
     --quiet
 if ($LASTEXITCODE -ne 0) { throw "Cloud Run deployment failed." }

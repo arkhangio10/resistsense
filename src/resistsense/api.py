@@ -4,10 +4,12 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from .auditor_eval import run_auditor_safety_eval
 from .config import load_config
@@ -15,7 +17,12 @@ from .evidence_auditor import audit_analysis
 from .pipeline import analyze_fasta, runtime_readiness
 from .reporter import audit_report
 from .schemas import AnalysisResponse
+from .usage_counter import record_anonymous_visitor, usage_summary
 from .verified_demo import verified_demo_payload
+
+
+class AnonymousVisitRequest(BaseModel):
+    visitor_id: UUID
 
 
 def _cors_origins() -> list[str]:
@@ -58,6 +65,16 @@ def health() -> dict:
 @app.get("/api/v1/readiness")
 def readiness() -> dict:
     return runtime_readiness()
+
+
+@app.post("/api/v1/usage/visit")
+async def register_anonymous_visit(payload: AnonymousVisitRequest) -> dict:
+    return await run_in_threadpool(record_anonymous_visitor, payload.visitor_id)
+
+
+@app.get("/api/v1/usage/summary")
+async def anonymous_usage_summary() -> dict:
+    return await run_in_threadpool(usage_summary)
 
 
 @app.get("/api/v1/scope")

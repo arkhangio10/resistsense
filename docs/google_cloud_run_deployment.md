@@ -14,6 +14,7 @@ The production target is one Cloud Run service containing the React/vinext front
 - OpenAI key: Secret Manager, pinned secret version
 - Uploaded FASTA: held in request memory/temporary tool directories only; not persisted by ResistSense
 - API access log: disabled; Nginx logs route metadata, not request bodies
+- Usage counter: Firestore stores only a SHA-256 hash of a random browser UUID and aggregate count; no IP, FASTA, filename, or identity is stored by the application. Google Cloud infrastructure request logs remain subject to the project's logging configuration and retention policy.
 
 Scaling to zero controls idle cost, but Cloud Build, Artifact Registry, Secret Manager, Cloud Run execution, networking, and OpenAI API usage can still incur charges.
 
@@ -61,24 +62,32 @@ If the secret already exists, replace `gcloud secrets create ...` with:
 $PlainKey | gcloud.cmd secrets versions add $SecretName --project $ProjectId --data-file=-
 ```
 
-## Create a budget alert
+## Configure the counter and automatic cost guard
 
-Budgets send alerts but do not impose a hard spending cap. The following example scopes a USD 10 monthly budget to the deployment project and alerts at 50%, 90%, and 100% of actual spend.
+After the first Cloud Run deployment, run the operations script. It creates the Firestore anonymous-browser counter, sends an email to `arkhangio@gmail.com` at 50% of actual monthly spend, and deploys a Pub/Sub-triggered guard that changes only the ResistSense service to internal-only ingress and removes its public invoker at 100%.
+
+This billing account uses PEN, so the configured monthly amount is **S/34**, approximately USD 9.98 using the SBS/BCRP 17 July 2026 selling rate of S/3.408 per USD. The email threshold is **S/17**, approximately USD 4.99. This stays just below the requested USD 10 ceiling; revisit the PEN amount if the exchange rate moves materially.
+
+Google Cloud budgets use delayed estimated billing data and are not hard real-time caps. The guard is reversible and safer than disabling billing for the whole project, but a small overrun beyond USD 10 remains possible. Artifact Registry and Secret Manager storage can also continue to incur a small cost after public access closes.
 
 ```powershell
-$ProjectId = "YOUR_PROJECT_ID"
-$ProjectNumber = gcloud.cmd projects describe $ProjectId --format="value(projectNumber)"
-$BillingResource = gcloud.cmd billing projects describe $ProjectId --format="value(billingAccountName)"
-$BillingAccount = ($BillingResource -split "/")[-1]
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+    -File ".\deploy\cloudrun\Configure-ResistSenseOperations.ps1" `
+    -ProjectId "YOUR_PROJECT_ID" `
+    -BillingAccountId "YOUR_BILLING_ACCOUNT_ID" `
+    -BudgetAmount 34 `
+    -BudgetCurrency "PEN" `
+    -AlertEmail "arkhangio@gmail.com"
+```
 
-gcloud.cmd billing budgets create `
-    --billing-account $BillingAccount `
-    --display-name "ResistSense demo budget" `
-    --budget-amount 10USD `
-    --filter-projects "projects/$ProjectNumber" `
-    --threshold-rule percent=0.50,basis=current-spend `
-    --threshold-rule percent=0.90,basis=current-spend `
-    --threshold-rule percent=1.00,basis=current-spend
+The displayed count is **unique anonymous browsers**, not verified people. The same browser is counted once while it keeps local storage; another browser/profile or cleared storage counts as a new visitor.
+
+If the budget guard closes the demo and you later decide to reopen it, first inspect the spend, then run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+    -File ".\deploy\cloudrun\Restore-ResistSensePublicAccess.ps1" `
+    -ProjectId "YOUR_PROJECT_ID"
 ```
 
 ## Build and deploy

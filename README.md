@@ -15,10 +15,12 @@ must be confirmed with standard laboratory testing.
 
 ## Live demo
 
-The permanent Google Cloud Run deployment configuration is implemented. The
-public URL must be inserted here after deployment and smoke verification; do
-not submit another laptop-dependent tunnel. Until then, the verified Docker
-instructions below reproduce the complete application locally.
+The permanent public demo is available at
+[`https://resistsense-54azg7trza-uc.a.run.app`](https://resistsense-54azg7trza-uc.a.run.app).
+It runs on Google Cloud Run independently of the development laptop. A
+project-scoped monthly budget alerts at approximately USD 5 and automatically
+closes public ingress at approximately USD 10; the interface reports only a
+deduplicated anonymous-browser count.
 
 ## Current status
 
