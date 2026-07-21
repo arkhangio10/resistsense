@@ -35,14 +35,31 @@ test("server-renders the ResistSense product shell", async () => {
 });
 
 test("frontend delegates scientific decisions to the API", async () => {
-  const [page, layout, packageJson] = await Promise.all([
+  const [page, layout, packageJson, simulation] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
+    readFile(new URL("../components/BioSimulation.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(page, /NEXT_PUBLIC_API_URL/);
   assert.match(page, /\/api\/v1\/analyze/);
   assert.match(page, /\/api\/v1\/prediction-autopsy/);
+  assert.match(page, /\/api\/v1\/safety-report/);
+  assert.match(page, /\/api\/v1\/evidence-audit/);
+  assert.match(page, /\/api\/v1\/verified-demo/);
+  assert.match(page, /\/api\/v1\/auditor-safety-eval/);
+  assert.match(page, /\/api\/v1\/system-provenance/);
+  assert.match(page, /Start 90-second judge tour/);
+  assert.match(page, /Verified frozen-test case/);
+  assert.match(page, /GPT-5\.6 Evidence Conflict Auditor/);
+  assert.match(page, /See exactly what the firewall challenged/);
+  assert.match(page, /Uncertainty becomes a worklist/);
+  assert.match(page, /Guardrails are tested, not trusted/);
+  assert.match(page, /Every result carries its receipts/);
+  assert.match(page, /0 raw DNA bases sent/);
+  assert.match(page, /Decision locked before the optional GPT audit/);
+  assert.match(page, /Raw FASTA, original filename, checksum/);
+  assert.match(page, /Download JSON/);
   assert.match(page, /Prediction autopsy/i);
   assert.match(page, /Residual error/);
   assert.match(page, /BioSimulation/);
@@ -50,6 +67,21 @@ test("frontend delegates scientific decisions to the API", async () => {
   assert.match(page, /Antibiotic assessments/);
   assert.match(page, /type="file"/);
   assert.doesNotMatch(page, /Math\.random|mockProbability|fakeResult/i);
+  assert.match(page, /Applying safety barriers/);
+  assert.match(simulation, /prefers-reduced-motion/);
+  assert.match(simulation, /fallback={<StaticSpecimen/);
+  assert.match(simulation, /Peptidoglycan synthesis \/ PBPs/);
+  assert.match(simulation, /DNA gyrase \/ topoisomerase IV/);
+  assert.match(simulation, /30S ribosome \/ 16S rRNA/);
+  assert.match(simulation, /Sequential folate synthesis/);
+  assert.match(simulation, /ENVELOPE LYSED/);
+  assert.match(simulation, /REPLICATION FAILURE/);
+  assert.match(simulation, /MEMBRANE FAILURE/);
+  assert.match(simulation, /GROWTH ARREST/);
+  assert.match(simulation, /CELLULAR FUNCTION PRESERVED/);
+  assert.match(simulation, /NO-CALL · NO RESPONSE INFERRED/);
+  assert.match(simulation, /Mechanism-informed illustration/);
+  assert.doesNotMatch(simulation, /organism viability is measured/i);
   assert.match(layout, /ResistSense \| Genome Firewall/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });

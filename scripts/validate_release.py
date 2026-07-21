@@ -35,6 +35,11 @@ def main() -> None:
         default=Path("artifacts/evaluation/evaluation.json"),
     )
     parser.add_argument(
+        "--safety-report",
+        type=Path,
+        default=Path("artifacts/evaluation/class_aware_safety_report.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("artifacts/evaluation/release_gate.json"),
@@ -48,6 +53,7 @@ def main() -> None:
     predictions_sha256 = hashlib.sha256(args.predictions.read_bytes()).hexdigest()
     predictions = pd.read_csv(args.predictions)
     evaluation = json.loads(args.evaluation.read_text(encoding="utf-8"))
+    safety_report = json.loads(args.safety_report.read_text(encoding="utf-8"))
     checks: list[dict[str, object]] = []
 
     def check(name: str, passed: bool, evidence: object) -> None:
@@ -62,6 +68,26 @@ def main() -> None:
         "frozen_test_only",
         predictions["split"].astype(str).str.lower().eq("test").all(),
         sorted(predictions["split"].astype(str).unique().tolist()),
+    )
+    check(
+        "class_aware_report_prediction_hash",
+        safety_report.get("predictions_sha256") == predictions_sha256,
+        safety_report.get("predictions_sha256"),
+    )
+    check(
+        "research_demo_status",
+        safety_report.get("research_demo_status") == "pass",
+        safety_report.get("research_demo_status"),
+    )
+    check(
+        "clinical_release_blocked_without_external_validation",
+        safety_report.get("clinical_release_status")
+        == "fail_not_externally_validated"
+        and safety_report.get("evaluation_scope", {}).get(
+            "external_validation_complete"
+        )
+        is False,
+        safety_report.get("clinical_release_status"),
     )
     check(
         "independent_targets_available",
@@ -79,6 +105,9 @@ def main() -> None:
         bundle = load_model(args.model_dir / artifact_name(antibiotic))
         subset = predictions[predictions["antibiotic"].astype(str).eq(antibiotic)]
         metrics = evaluation["antibiotics"][antibiotic]
+        class_metrics = safety_report["antibiotics"][antibiotic][
+            "by_laboratory_class"
+        ]
         check(
             f"{antibiotic}:dataset_hash",
             bundle.dataset_sha256 == dataset_sha256,
@@ -101,6 +130,16 @@ def main() -> None:
             len(subset) == 437,
             len(subset),
         )
+        for label in ("resistant", "susceptible"):
+            class_subset = subset[subset["label"].astype(str).str.lower().eq(label)]
+            emitted = int(class_subset["final_status"].astype(str).ne("no_call").sum())
+            coverage = class_metrics[label]["coverage"]
+            check(
+                f"{antibiotic}:{label}_class_coverage_counts",
+                coverage.get("numerator") == emitted
+                and coverage.get("denominator") == len(class_subset),
+                coverage,
+            )
         conformal_coverage = float(metrics["conformal"]["empirical_coverage"])
         check(
             f"{antibiotic}:conformal_coverage",
@@ -120,6 +159,8 @@ def main() -> None:
         "status": "pass" if not failed else "fail",
         "research_use_only": True,
         "external_validation_complete": False,
+        "research_demo_status": safety_report.get("research_demo_status"),
+        "clinical_release_status": safety_report.get("clinical_release_status"),
         "dataset_sha256": dataset_sha256,
         "predictions_sha256": predictions_sha256,
         "thresholds": {

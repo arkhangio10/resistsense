@@ -17,7 +17,8 @@ if (-not $stagingPath.StartsWith((Join-Path $projectRoot "tmp"), [System.StringC
 $requiredPaths = @(
     (Join-Path $projectRoot "artifacts\runtime\models"),
     (Join-Path $projectRoot "artifacts\phase2"),
-    (Join-Path $projectRoot "artifacts\evaluation\prediction_autopsy.json")
+    (Join-Path $projectRoot "artifacts\evaluation\prediction_autopsy.json"),
+    (Join-Path $projectRoot "artifacts\evaluation\class_aware_safety_report.json")
 )
 
 foreach ($requiredPath in $requiredPaths) {
@@ -40,6 +41,8 @@ Copy-Item -LiteralPath (Join-Path $projectRoot "artifacts\phase2") `
     -Destination (Join-Path $stagingPath "artifacts\phase2") -Recurse
 Copy-Item -LiteralPath (Join-Path $projectRoot "artifacts\evaluation\prediction_autopsy.json") `
     -Destination (Join-Path $stagingPath "artifacts\evaluation\prediction_autopsy.json")
+Copy-Item -LiteralPath (Join-Path $projectRoot "artifacts\evaluation\class_aware_safety_report.json") `
+    -Destination (Join-Path $stagingPath "artifacts\evaluation\class_aware_safety_report.json")
 
 if (Test-Path -LiteralPath $bundlePath) {
     Remove-Item -LiteralPath $bundlePath -Force

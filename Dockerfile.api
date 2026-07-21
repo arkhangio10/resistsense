@@ -24,6 +24,7 @@ COPY configs ./configs
 COPY artifacts/runtime/models ./artifacts/runtime/models
 COPY artifacts/phase2 ./artifacts/phase2
 COPY artifacts/evaluation/prediction_autopsy.json ./artifacts/evaluation/prediction_autopsy.json
+COPY artifacts/evaluation/class_aware_safety_report.json ./artifacts/evaluation/class_aware_safety_report.json
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

@@ -48,8 +48,9 @@ def _no_call(
         ood_score=evidence.ood_score,
         no_call_reasons=reasons,
         explanation=(
-            "No-call: the available evidence does not satisfy the ResistSense "
-            "safety policy. Standard laboratory testing is required."
+            "No-call — insufficient or conflicting evidence: the available "
+            "evidence does not satisfy the ResistSense safety policy. Standard "
+            "laboratory testing is required."
         ),
     )
 
@@ -119,8 +120,9 @@ def decide(evidence: DrugEvidence, policy: FirewallConfig) -> AntibioticResult:
             model_probabilities=evidence.model_probabilities,
             ood_score=evidence.ood_score,
             explanation=(
-                "Probable failure: calibrated statistical evidence supports "
-                "resistance. Confirm with standard laboratory testing."
+                "Resistance signal: calibrated statistical evidence is "
+                "compatible with resistance. Confirm with standard laboratory "
+                "testing."
             ),
         )
 
@@ -149,8 +151,9 @@ def decide(evidence: DrugEvidence, policy: FirewallConfig) -> AntibioticResult:
             model_probabilities=evidence.model_probabilities,
             ood_score=evidence.ood_score,
             explanation=(
-                "Probable efficacy: susceptibility evidence passed the target "
-                "and confidence gates. Confirm with standard laboratory testing."
+                "Susceptibility-compatible signal: statistical evidence passed "
+                "the target and confidence gates. This is not proof of efficacy. "
+                "Confirm with standard laboratory testing."
             ),
         )
 

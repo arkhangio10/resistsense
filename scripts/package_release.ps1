@@ -30,6 +30,7 @@ $evaluationChecks = @{
     "model_selection.json" = $manifest.model_selection_sha256
     "evaluation.json" = $manifest.evaluation_sha256
     "prediction_autopsy.json" = $manifest.prediction_autopsy_sha256
+    "class_aware_safety_report.json" = $manifest.class_aware_safety_report_sha256
 }
 foreach ($name in $evaluationChecks.Keys) {
     $path = Join-Path $evaluationDir $name
@@ -60,6 +61,7 @@ foreach ($name in @(
     "feature_ablation.json",
     "model_selection.json",
     "prediction_autopsy.json",
+    "class_aware_safety_report.json",
     "predictions.csv",
     "release_gate.json"
 )) {

@@ -34,6 +34,24 @@ def test_health_and_scope() -> None:
     assert len(scope.json()["antibiotics"]) == 5
 
 
+def test_verified_demo_is_precomputed_traceable_and_safe() -> None:
+    response = request("GET", "/api/v1/verified-demo")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["demo_mode"] == "precomputed_verified_frozen_test_case"
+    assert payload["provenance"]["split"] == "frozen_grouped_test"
+    assert payload["provenance"]["test_set_retuning_allowed"] is False
+    assert len(payload["provenance"]["predictions_sha256"]) == 64
+    statuses = {
+        item["final_status"] for item in payload["analysis"]["results"]
+    }
+    assert statuses == {"probable_failure", "probable_efficacy", "no_call"}
+    assert all(
+        "laboratory" in item["explanation"].lower()
+        for item in payload["analysis"]["results"]
+    )
+
+
 def test_dataset_audit_exposes_only_aggregate_verified_data(
     monkeypatch, tmp_path
 ) -> None:
@@ -129,6 +147,58 @@ def test_prediction_autopsy_exposes_real_held_out_errors_safely(
     assert all("sequence" not in item for item in payload["cases"])
 
 
+def test_class_aware_safety_report_preserves_release_boundary(
+    monkeypatch, tmp_path
+) -> None:
+    artifact = tmp_path / "class_aware_safety_report.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "status": "frozen_internal_grouped_validation",
+                "research_demo_status": "pass",
+                "clinical_release_status": "fail_not_externally_validated",
+                "clinical_release_reasons": [
+                    "independent_external_validation_incomplete"
+                ],
+                "source": "test fixture",
+                "predictions_sha256": "fixture",
+                "evaluation_scope": {
+                    "external_validation_complete": False,
+                    "test_set_retuning_allowed": False,
+                },
+                "limitations": ["Laboratory confirmation is required."],
+                "antibiotics": {
+                    "gentamicin": {
+                        "by_laboratory_class": {
+                            "resistant": {
+                                "coverage": {
+                                    "numerator": 0,
+                                    "denominator": 27,
+                                    "value": 0.0,
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RESISTSENSE_SAFETY_REPORT", str(artifact))
+    response = request("GET", "/api/v1/safety-report")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["research_demo_status"] == "pass"
+    assert payload["clinical_release_status"] == "fail_not_externally_validated"
+    assert payload["evaluation_scope"]["test_set_retuning_allowed"] is False
+    resistant = payload["antibiotics"]["gentamicin"]["by_laboratory_class"][
+        "resistant"
+    ]
+    assert resistant["coverage"]["numerator"] == 0
+    assert resistant["coverage"]["denominator"] == 27
+
+
 def test_short_fasta_returns_safe_no_calls() -> None:
     response = request(
         "POST",
@@ -139,6 +209,54 @@ def test_short_fasta_returns_safe_no_calls() -> None:
     payload = response.json()
     assert payload["qc"]["passed"] is False
     assert all(result["final_status"] == "no_call" for result in payload["results"])
+
+
+def test_evidence_audit_falls_back_without_openai_key(monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    scientific = request(
+        "POST",
+        "/api/v1/analyze",
+        files={"file": ("short.fasta", b">short\nACGTACGT\n", "text/plain")},
+    ).json()
+    response = request("POST", "/api/v1/evidence-audit", json=scientific)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source"] == "deterministic_fallback"
+    assert payload["fallback_reason"] == "openai_api_key_missing"
+    assert payload["audit"]["laboratory_confirmation_required"] is True
+    assert all(
+        item["final_status"] == "no_call"
+        for item in payload["audit"]["result_checks"]
+    )
+    assert "short.fasta" not in json.dumps(payload)
+
+
+def test_auditor_safety_eval_executes_all_guardrail_cases() -> None:
+    response = request("GET", "/api/v1/auditor-safety-eval")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["evaluation_mode"] == "executable deterministic guardrail tests"
+    assert payload["total_cases"] >= 10
+    assert payload["passed_cases"] == payload["total_cases"]
+    assert payload["failed_cases"] == 0
+    assert payload["metrics"]["decision_integrity"]["passed"] >= 3
+    assert payload["metrics"]["privacy_boundary"] == {"passed": 2, "total": 2}
+    assert all(case["passed"] for case in payload["cases"])
+
+
+def test_system_provenance_exposes_versions_without_secrets() -> None:
+    response = request("GET", "/api/v1/system-provenance")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["policy"]["sha256"]) == 64
+    assert payload["policy"]["fail_safe"] is True
+    assert payload["auditor"]["raw_fasta_sent_to_openai"] is False
+    assert payload["auditor"]["decision_mutation_allowed"] is False
+    assert payload["release_boundary"]["laboratory_confirmation_required"] is True
+    assert payload["release_boundary"]["treatment_recommendation_allowed"] is False
+    serialized = json.dumps(payload).lower()
+    assert "openai_api_key" not in serialized
+    assert "secret" not in serialized
 
 
 def test_non_fasta_extension_is_rejected() -> None:

@@ -6,24 +6,19 @@ ResistSense is a defensive research prototype that turns a reconstructed,
 quality-checked *Escherichia coli* FASTA into one of three results for each
 supported antibiotic:
 
-- probable failure;
-- probable efficacy;
-- no-call when the evidence is insufficient, conflicting, or unfamiliar.
+- resistance signal;
+- susceptibility-compatible signal;
+- no-call — insufficient or conflicting evidence.
 
 It is not a diagnostic device and never recommends treatment. Every result
 must be confirmed with standard laboratory testing.
 
 ## Live demo
 
-**Current demo:** [Open ResistSense](https://powerful-cooked-mercy-style.trycloudflare.com)
-
-> **Hackathon submission link update (July 19, 2026):** The original demo URL
-> used a temporary Cloudflare Quick Tunnel and expired after the host machine
-> restarted. The link above is the current active demo. Because it is a
-> temporary tunnel, it remains available only while the host machine, Docker
-> services, and internet connection are online. If the link is unavailable,
-> the verified Docker instructions below reproduce the complete application
-> locally.
+The permanent Google Cloud Run deployment configuration is implemented. The
+public URL must be inserted here after deployment and smoke verification; do
+not submit another laptop-dependent tunnel. Until then, the verified Docker
+instructions below reproduce the complete application locally.
 
 ## Current status
 
@@ -42,6 +37,33 @@ validation remains open. Prediction Autopsy exposes frozen-test errors,
 including residual errors that escaped the firewall; see
 `docs/model_validation.md` and `docs/prediction_autopsy.md`.
 
+The Build Week layer adds an exact class-aware safety report and a constrained
+GPT-5.6 Evidence Conflict Auditor. GPT receives only allowlisted structured
+evidence, never raw FASTA, original filenames, checksums, free-form user text,
+secrets, or personal data. It cannot change scientific results. If OpenAI is
+unavailable or its output fails validation, the deterministic report is
+returned unchanged.
+
+The judge-facing application now turns those controls into an auditable review
+workflow:
+
+- a 90-second guided Judge Mode using a frozen, traceable test case;
+- Firewall Replay, which keeps statistical association, known biological
+  evidence, safety triggers, and the final assessment visibly separate;
+- an antibiotic-specific, mechanism-informed 3D illustration that distinguishes
+  beta-lactam envelope failure, ciprofloxacin-associated DNA stress,
+  gentamicin-associated translation and membrane stress, and sequential folate
+  blockade; no-call remains visually neutral;
+- a human-review worklist that prioritizes no-calls without ranking therapies;
+- an executable 12-case adversarial suite around the GPT-5.6 boundary;
+- an Evidence Passport containing sample, toolchain, policy, model, privacy,
+  and frozen-split provenance; and
+- an exportable JSON evidence packet for reproducible handoff.
+
+The adversarial suite tests deterministic enforcement around the optional
+model response; it is not biological or clinical validation. Independent
+external validation remains explicitly incomplete.
+
 ## Architecture
 
 ```text
@@ -54,7 +76,10 @@ FASTA validation -> AMRFinderPlus + k-mers -> per-drug ensemble
       |              independent target gate    |
       +-------------- confidence firewall <-----+
                            |
-      probable failure / probable efficacy / no-call
+ resistance signal / susceptibility-compatible signal / no-call
+                           |
+              optional GPT-5.6 evidence audit
+              (structured, non-authoritative)
 ```
 
 The React frontend only presents results. All scientific computation and
@@ -80,6 +105,8 @@ npm run dev
 ```
 
 Configure `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000` for local development.
+Set `OPENAI_API_KEY` only in the backend environment to enable the optional
+evidence audit. The scientific pipeline works without it.
 
 ## Verified container demo
 
@@ -95,13 +122,13 @@ Open `http://localhost:3000`. The API health endpoint is
 `http://localhost:8000/health`. See `docs/deployment.md` for public-origin and
 release-asset configuration.
 
-## Permanent Hugging Face deployment
+## Permanent Google Cloud deployment
 
-The repository includes a single-container Hugging Face Docker Space that
-combines the React application, FastAPI service, pinned AMRFinderPlus runtime,
-and checksum-frozen model bundle behind one stable public origin. See
-[`docs/huggingface_deployment.md`](docs/huggingface_deployment.md) for the
-architecture and publication workflow.
+The repository includes a single-container Cloud Run deployment that combines
+the React application, FastAPI service, pinned AMRFinderPlus runtime, local
+models, evaluation artifacts, and same-origin proxy. It scales to zero and caps
+concurrency and maximum instances. See
+[`docs/google_cloud_run_deployment.md`](docs/google_cloud_run_deployment.md).
 
 ## Verified phase-2 audit
 
@@ -154,6 +181,9 @@ python scripts\evaluate_feature_ablation.py --bootstrap-replicates 1000
 # Build deterministic held-out error cases for the API and React application
 python scripts\build_prediction_autopsy.py
 
+# Build exact class-aware metrics and the judge-facing Markdown summary
+python scripts\build_class_aware_safety_report.py --bootstrap-replicates 1000
+
 # Refuse release when hashes, strategies, coverage, or safety gates disagree
 python scripts\validate_release.py
 ```
@@ -183,3 +213,15 @@ explicit development-only override is supplied.
 When any required component is missing, the runtime returns `no-call`.
 
 See `docs/execution_status.md` for the requirement-by-requirement status.
+
+## Build Week disclosure
+
+Work completed before this iteration and work added during Build Week are
+separated in [`docs/build_week_submission.md`](docs/build_week_submission.md).
+Abel Mancilla is the sole owner and team member. Codex was used as a
+software-development tool; it is not an author, coauthor, or team member.
+
+## License
+
+ResistSense is available under the Apache License 2.0. See `LICENSE` and
+`THIRD_PARTY_NOTICES.md`.
