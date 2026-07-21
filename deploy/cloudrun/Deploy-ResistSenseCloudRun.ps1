@@ -101,7 +101,7 @@ gcloud.cmd run deploy $ServiceName `
     --timeout 900 `
     --startup-probe "httpGet.path=/health,httpGet.port=8080,periodSeconds=2,timeoutSeconds=2,failureThreshold=60" `
     --service-account $serviceAccount `
-    --set-env-vars "AMRFINDER_THREADS=2,RESISTSENSE_USAGE_COUNTER_ENABLED=true" `
+    --set-env-vars "AMRFINDER_THREADS=2,RESISTSENSE_USAGE_COUNTER_ENABLED=true,RESISTSENSE_OPENAI_USAGE_GUARD_ENABLED=true" `
     --set-secrets "OPENAI_API_KEY=$OpenAISecretName`:$secretVersion" `
     --quiet
 if ($LASTEXITCODE -ne 0) { throw "Cloud Run deployment failed." }

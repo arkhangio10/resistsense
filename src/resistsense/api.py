@@ -6,14 +6,24 @@ import os
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .auditor_eval import run_auditor_safety_eval
 from .config import load_config
-from .evidence_auditor import audit_analysis
+from .evidence_auditor import (
+    audit_analysis,
+    audit_input_character_count,
+    deterministic_audit_fallback,
+)
+from .openai_usage_guard import (
+    blocked_quota_status,
+    reserve_openai_audit,
+    settle_openai_audit,
+    usage_guard_enabled,
+)
 from .pipeline import analyze_fasta, runtime_readiness
 from .reporter import audit_report
 from .schemas import AnalysisResponse
@@ -53,7 +63,7 @@ app.add_middleware(
     allow_origins=_cors_origins(),
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-ResistSense-Visitor-ID"],
 )
 
 
@@ -275,6 +285,16 @@ def system_provenance() -> dict:
             "store": False,
             "raw_fasta_sent_to_openai": False,
             "decision_mutation_allowed": False,
+            "usage_guard": {
+                "enabled_in_policy": config.openai_auditor.usage_guard.enabled,
+                "monthly_budget_usd": (
+                    config.openai_auditor.usage_guard.monthly_budget_usd
+                ),
+                "daily_requests_per_browser": (
+                    config.openai_auditor.usage_guard.daily_requests_per_browser
+                ),
+                "fail_closed_when_unavailable": True,
+            },
         },
         "release_boundary": {
             "research_use_only": True,
@@ -305,7 +325,13 @@ async def analyze(file: UploadFile = File(...)) -> dict:
 
 
 @app.post("/api/v1/evidence-audit")
-async def evidence_audit(report: AnalysisResponse) -> dict:
+async def evidence_audit(
+    report: AnalysisResponse,
+    visitor_id: UUID | None = Header(
+        default=None,
+        alias="X-ResistSense-Visitor-ID",
+    ),
+) -> dict:
     violations = audit_report(report)
     if violations:
         raise HTTPException(
@@ -316,6 +342,63 @@ async def evidence_audit(report: AnalysisResponse) -> dict:
             },
         )
     config = load_config()
+    guard_policy = config.openai_auditor.usage_guard
+    guard_active = usage_guard_enabled(guard_policy)
+    if guard_active and config.openai_auditor.enabled and os.getenv("OPENAI_API_KEY"):
+        if visitor_id is None:
+            response = deterministic_audit_fallback(
+                report,
+                config.openai_auditor,
+                "openai_visitor_id_missing",
+                quota=blocked_quota_status(guard_policy, "visitor_id_missing"),
+            )
+            return response.model_dump(mode="json")
+
+        if (
+            audit_input_character_count(report, config.openai_auditor)
+            > guard_policy.max_input_characters
+        ):
+            response = deterministic_audit_fallback(
+                report,
+                config.openai_auditor,
+                "openai_payload_too_large",
+                quota=blocked_quota_status(guard_policy, "payload_too_large"),
+            )
+            return response.model_dump(mode="json")
+
+        decision = await run_in_threadpool(
+            reserve_openai_audit,
+            visitor_id,
+            guard_policy,
+        )
+        if not decision.allowed or decision.reservation_id is None:
+            fallback_reason = {
+                "daily_limit_reached": "openai_daily_limit_reached",
+                "monthly_budget_reached": "openai_usage_limit_reached",
+                "storage_unavailable": "openai_usage_guard_unavailable",
+            }.get(decision.reason, "openai_usage_guard_unavailable")
+            response = deterministic_audit_fallback(
+                report,
+                config.openai_auditor,
+                fallback_reason,
+                quota=decision.status,
+            )
+            return response.model_dump(mode="json")
+
+        response = await run_in_threadpool(
+            audit_analysis, report, config.openai_auditor
+        )
+        usage = response.usage
+        response.quota = await run_in_threadpool(
+            settle_openai_audit,
+            decision.reservation_id,
+            visitor_id,
+            guard_policy,
+            input_tokens=usage.input_tokens if usage is not None else None,
+            output_tokens=usage.output_tokens if usage is not None else None,
+        )
+        return response.model_dump(mode="json")
+
     response = await run_in_threadpool(
         audit_analysis, report, config.openai_auditor
     )

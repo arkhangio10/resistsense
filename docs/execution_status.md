@@ -42,9 +42,9 @@ coverage from zero to 69.6% while preserving 99.7% selective accuracy.
 | Molecular target gate | Complete | Independent BLAST alignment succeeded for all 437 frozen-test genomes; AMR-marker absence is never accepted as target evidence |
 | Evidence levels A-E | Complete | Structured result contract and deterministic explanations |
 | Communication auditor | Deterministic safety auditor complete | Blocks treatment language, changed numbers, and missing lab confirmation |
-| OpenAI second-pass auditor | Complete and live-verified locally | GPT-5.6 Sol Responses API Structured Output, strict validator, privacy allowlist, request/response and aggregate-token telemetry, deterministic fallback, and adversarial tests are complete. A credentialed 2026-07-21 verification returned a validated `source=openai` audit with 2,819 aggregate tokens and zero raw FASTA bases sent. |
+| OpenAI second-pass auditor | Complete and live-verified in production | GPT-5.6 Sol Responses API Structured Output, strict validator, privacy allowlist, request/response and aggregate-token telemetry, deterministic fallback, and adversarial tests are complete. A Cloud Run verification returned `source=openai` with 1,673 input and 1,330 output tokens; no raw FASTA bases were sent. A transactional USD 5 Firestore guard and three-audits-per-browser daily limit fail closed before the model call. |
 | React application | Complete | Upload, QC, safe result labels, six barriers, class-aware coverage, Prediction Autopsy, constrained GPT audit, verified judge example, and downloadable JSON |
-| Container deployment | Cloud Run configuration complete; external deployment pending | Single same-origin container, Secret Manager binding, bounded scaling, health check, and PowerShell deployment workflow are implemented |
+| Container deployment | Complete and public | Revision `resistsense-00004-nf4` serves 100% of traffic at the permanent Cloud Run URL with Secret Manager, Firestore, bounded scaling, and passing health checks |
 | Epidemiology | Partial | Aggregate phenotype/QC dashboard only; geography/time await permitted metadata |
 | Prediction Autopsy | Complete | Nine deterministic frozen-test cases summarize 55 prevented and 13 residual emitted errors; API and React presentation are implemented |
 | Standard metrics | Complete and executed | Balanced accuracy, class recall, precision/F1, AUROC, PR-AUC, Brier, reliability, and 1,000-replicate group-bootstrap intervals |
@@ -71,8 +71,8 @@ The following sequence produces a scientifically evaluable release:
 Gates 1-8 are complete. The predeclared training-group rule selects the
 advanced branch only for ciprofloxacin. The Prediction Autopsy and joint
 API/React implementation in gate 9 and the Build Week safety/OpenAI layers are
-complete locally. Credentialed GPT-5.6 verification passed; external Cloud Run
-deployment remains pending.
+deployed together on Cloud Run. Credentialed GPT-5.6 verification and the
+pre-call daily-limit block both passed in production.
 
 Any runtime missing models, AMRFinderPlus, calibration, target annotation, or
 quality evidence fails closed to `no_call`. External validation remains an
@@ -80,7 +80,7 @@ explicit limitation even when the local release gate passes.
 
 ## Final local verification
 
-- Backend: 58 tests pass.
+- Backend: 73 tests pass.
 - Frontend: production build, two rendered-output tests, and ESLint pass.
 - Release validator: `research_demo_status=pass`, while
   `clinical_release_status=fail_not_externally_validated` remains enforced.
@@ -96,6 +96,6 @@ explicit limitation even when the local release gate passes.
   the scientific report, and a subsequent structured audit passed every
   deterministic validation rule using `gpt-5.6-sol`.
 
-The remaining deployment checks require authorized Google Cloud billing and a
-server-side OpenAI secret. They are not local code defects and have not been
-represented as complete.
+Google Cloud billing, Secret Manager, Firestore quota enforcement, the
+server-side OpenAI key, public ingress, and health checks are configured and
+live. Independent biological and clinical validation remain explicitly open.

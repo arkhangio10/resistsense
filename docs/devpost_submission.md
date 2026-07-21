@@ -83,7 +83,10 @@ prediction, OOD detection, and deterministic safety policies. The frontend
 uses React, TypeScript, vinext, CSS, and Three.js. GPT-5.6 Sol runs through the
 Responses API with Structured Outputs, an allowlisted input contract, `store`
 disabled, and a second deterministic validator. Deployment uses Docker,
-Google Cloud Build, Artifact Registry, Secret Manager, Nginx, and Cloud Run.
+Google Cloud Build, Artifact Registry, Secret Manager, Firestore, Nginx, and
+Cloud Run. A transactional usage guard reserves budget before every model call,
+settles token usage afterward, limits each anonymous browser to three audits
+per UTC day, and fails closed without affecting the scientific report.
 
 ## 6. Results and impact
 
@@ -93,7 +96,7 @@ target. Prediction Autopsy identifies 68 base-model errors: the firewall blocks
 55 and exposes the 13 residual emitted errors. Cefotaxime reaches 69.6%
 firewall coverage while preserving 99.7% selective accuracy after adding a
 drug-specific independent evidence gate. The complete research release passes
-47 machine-readable gates, 58 backend tests, frontend lint/build/tests, and an
+47 machine-readable gates, 73 backend tests, frontend lint/build/tests, and an
 adversarial model-output safety suite.
 
 These are internal grouped-validation results. Independent external and
