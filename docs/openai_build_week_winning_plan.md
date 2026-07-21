@@ -1,6 +1,6 @@
 # ResistSense — OpenAI Build Week Winning Plan
 
-**Status:** core implementation complete locally; permanent Cloud Run deployment, live credentialed GPT verification, CI, video, and final submission remain external execution tasks
+**Status:** core implementation and credentialed GPT verification complete; permanent Cloud Run deployment, video, and final submission remain external execution tasks
 **Prepared:** 2026-07-20
 **Submission deadline:** 2026-07-21 17:00 PDT / 19:00 America/Lima
 **Track:** Work & Productivity
