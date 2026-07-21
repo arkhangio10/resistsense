@@ -61,6 +61,14 @@ firewall:
   require_target_for_probable_efficacy: true
   require_amrfinderplus: true
 
+openai_auditor:
+  enabled: true
+  model: gpt-5.6-sol
+  reasoning_effort: low
+  prompt_version: evidence-conflict-auditor-v1
+  timeout_seconds: 30
+  max_output_tokens: 1600
+
 runtime:
   model_dir: artifacts/runtime/models
   report_dir: artifacts/runtime/reports

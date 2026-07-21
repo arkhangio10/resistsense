@@ -8,6 +8,7 @@
   "model_selection_sha256": "56a2e4e0cf9a846b8f8f1c889509d4fa203cc60b1c1a50b25a91095cedf9e6a9",
   "evaluation_sha256": "1937d01a53d82ed13286f1e58b37c62370da26f8fec05113f8c8748e5edb0e60",
   "prediction_autopsy_sha256": "aff09111983d173456d09b4e651de1aeb14fb8b3a31bc65f6713e3241ac61990",
+  "class_aware_safety_report_sha256": "aa14c617c184e95eaca7cdf786c22f8d7abf5ddb04ec8b2ecdeb7c95a4264259",
   "model_runtime": {
     "python": "3.11",
     "scikit_learn": "1.8.0",

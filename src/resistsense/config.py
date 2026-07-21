@@ -83,6 +83,17 @@ class FirewallConfig(BaseModel):
     require_amrfinderplus: bool = True
 
 
+class OpenAIAuditorConfig(BaseModel):
+    enabled: bool = True
+    model: str = "gpt-5.6-sol"
+    reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = (
+        "low"
+    )
+    prompt_version: str = "evidence-conflict-auditor-v1"
+    timeout_seconds: int = Field(default=30, gt=0, le=120)
+    max_output_tokens: int = Field(default=1600, ge=256, le=4096)
+
+
 class RuntimeConfig(BaseModel):
     model_dir: Path
     report_dir: Path
@@ -98,6 +109,7 @@ class ResistSenseConfig(BaseModel):
     features: FeatureConfig = Field(default_factory=FeatureConfig)
     modeling: ModelingConfig
     firewall: FirewallConfig
+    openai_auditor: OpenAIAuditorConfig = Field(default_factory=OpenAIAuditorConfig)
     runtime: RuntimeConfig
 
 

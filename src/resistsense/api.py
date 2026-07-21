@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -8,9 +9,13 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
+from .auditor_eval import run_auditor_safety_eval
 from .config import load_config
+from .evidence_auditor import audit_analysis
 from .pipeline import analyze_fasta, runtime_readiness
 from .reporter import audit_report
+from .schemas import AnalysisResponse
+from .verified_demo import verified_demo_payload
 
 
 def _cors_origins() -> list[str]:
@@ -65,6 +70,19 @@ def scope() -> dict:
         "antibiotics": config.scope.antibiotics,
         "disclaimer": config.project.mandatory_disclaimer,
     }
+
+
+@app.get("/api/v1/verified-demo")
+def verified_demo() -> dict:
+    payload = verified_demo_payload()
+    report = AnalysisResponse.model_validate(payload["analysis"])
+    violations = audit_report(report)
+    if violations:
+        raise HTTPException(
+            status_code=500,
+            detail={"message": "Verified demo safety audit failed", "violations": violations},
+        )
+    return payload
 
 
 @app.get("/api/v1/dataset-audit")
@@ -163,6 +181,93 @@ def prediction_autopsy() -> dict:
     return {name: payload[name] for name in required}
 
 
+@app.get("/api/v1/safety-report")
+def safety_report() -> dict:
+    path = Path(
+        os.getenv(
+            "RESISTSENSE_SAFETY_REPORT",
+            "artifacts/evaluation/class_aware_safety_report.json",
+        )
+    )
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Safety report artifact unavailable")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    required = {
+        "schema_version",
+        "status",
+        "research_demo_status",
+        "clinical_release_status",
+        "clinical_release_reasons",
+        "source",
+        "predictions_sha256",
+        "evaluation_scope",
+        "limitations",
+        "antibiotics",
+    }
+    missing = required.difference(payload)
+    if missing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Safety report artifact is incomplete: {sorted(missing)}",
+        )
+    return {name: payload[name] for name in required}
+
+
+@app.get("/api/v1/auditor-safety-eval")
+def auditor_safety_eval() -> dict:
+    config = load_config()
+    report = run_auditor_safety_eval(config.openai_auditor)
+    return report.model_dump(mode="json")
+
+
+@app.get("/api/v1/system-provenance")
+def system_provenance() -> dict:
+    config = load_config()
+    config_path = Path(
+        os.getenv("RESISTSENSE_CONFIG", "configs/resistsense.yaml")
+    )
+    policy_sha256 = hashlib.sha256(config_path.read_bytes()).hexdigest()
+    return {
+        "schema_version": "1.0",
+        "project": config.project.name,
+        "mode": config.project.mode,
+        "species": config.scope.species.scientific_name,
+        "policy": {
+            "source": str(config_path).replace("\\", "/"),
+            "sha256": policy_sha256,
+            "fail_safe": True,
+            "resistant_probability_threshold": (
+                config.firewall.resistant_probability_threshold
+            ),
+            "susceptible_probability_threshold": (
+                config.firewall.susceptible_probability_threshold
+            ),
+            "maximum_model_disagreement": (
+                config.firewall.maximum_model_disagreement
+            ),
+            "maximum_ood_score": config.firewall.maximum_ood_score,
+        },
+        "models": {
+            antibiotic: policy.strategy
+            for antibiotic, policy in config.modeling.antibiotics.items()
+        },
+        "auditor": {
+            "model": config.openai_auditor.model,
+            "prompt_version": config.openai_auditor.prompt_version,
+            "structured_output": True,
+            "store": False,
+            "raw_fasta_sent_to_openai": False,
+            "decision_mutation_allowed": False,
+        },
+        "release_boundary": {
+            "research_use_only": True,
+            "laboratory_confirmation_required": True,
+            "treatment_recommendation_allowed": False,
+            "external_validation_complete": False,
+        },
+    }
+
+
 @app.post("/api/v1/analyze")
 async def analyze(file: UploadFile = File(...)) -> dict:
     config = load_config()
@@ -179,4 +284,22 @@ async def analyze(file: UploadFile = File(...)) -> dict:
             status_code=500,
             detail={"message": "Report safety audit failed", "violations": violations},
         )
+    return response.model_dump(mode="json")
+
+
+@app.post("/api/v1/evidence-audit")
+async def evidence_audit(report: AnalysisResponse) -> dict:
+    violations = audit_report(report)
+    if violations:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Scientific report failed the deterministic safety audit",
+                "violations": violations,
+            },
+        )
+    config = load_config()
+    response = await run_in_threadpool(
+        audit_analysis, report, config.openai_auditor
+    )
     return response.model_dump(mode="json")

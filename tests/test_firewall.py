@@ -47,6 +47,9 @@ def test_missing_model_always_abstains() -> None:
     result = decide(base_evidence(model_available=False), POLICY)
     assert result.final_status is FinalStatus.NO_CALL
     assert "model_unavailable" in result.no_call_reasons
+    assert result.explanation.startswith(
+        "No-call — insufficient or conflicting evidence"
+    )
 
 
 def test_high_ood_always_abstains() -> None:
@@ -62,6 +65,24 @@ def test_supported_resistance_can_emit_probable_failure() -> None:
     )
     assert result.final_status is FinalStatus.PROBABLE_FAILURE
     assert result.evidence_level is EvidenceLevel.BIOLOGICAL_AND_STATISTICAL
+    assert result.explanation.startswith("Resistance signal")
+    assert "probable failure" not in result.explanation.lower()
+
+
+def test_supported_susceptibility_uses_non_efficacy_wording() -> None:
+    result = decide(
+        base_evidence(
+            calibrated_probability_resistant=0.12,
+            conformal_set={"susceptible"},
+            model_probabilities={"logistic_regression": 0.12},
+            target_status=TargetStatus.PRESENT,
+            known_markers=[],
+        ),
+        POLICY,
+    )
+    assert result.final_status is FinalStatus.PROBABLE_EFFICACY
+    assert result.explanation.startswith("Susceptibility-compatible signal")
+    assert "not proof of efficacy" in result.explanation.lower()
 
 
 def test_susceptibility_requires_confirmed_target() -> None:

@@ -1,6 +1,6 @@
 # ResistSense execution status
 
-Status date: 2026-07-19. This is an evidence ledger, not a claim of clinical or
+Status date: 2026-07-21. This is an evidence ledger, not a claim of clinical or
 external validity.
 
 ## Outcome
@@ -42,13 +42,14 @@ coverage from zero to 69.6% while preserving 99.7% selective accuracy.
 | Molecular target gate | Complete | Independent BLAST alignment succeeded for all 437 frozen-test genomes; AMR-marker absence is never accepted as target evidence |
 | Evidence levels A-E | Complete | Structured result contract and deterministic explanations |
 | Communication auditor | Deterministic safety auditor complete | Blocks treatment language, changed numbers, and missing lab confirmation |
-| OpenAI second-pass auditor | External integration pending | No API key or official docs connector is configured; it is not in the decision path |
-| React application | Complete | Upload, QC, drug cards, Model Tribunal votes, no-call reasons, six barriers, verified cohort dashboard |
-| Container deployment | Complete locally | API and frontend images build; readiness passes and a real 5 Mbp FASTA completes all gates in 17.5 seconds without Docker-in-Docker |
+| OpenAI second-pass auditor | Implemented; live credential verification pending | GPT-5.6 Responses API Structured Output, strict validator, privacy allowlist, request/response and aggregate-token telemetry, deterministic fallback, and adversarial tests are complete; no API key is loaded in the current local session |
+| React application | Complete | Upload, QC, safe result labels, six barriers, class-aware coverage, Prediction Autopsy, constrained GPT audit, verified judge example, and downloadable JSON |
+| Container deployment | Cloud Run configuration complete; external deployment pending | Single same-origin container, Secret Manager binding, bounded scaling, health check, and PowerShell deployment workflow are implemented |
 | Epidemiology | Partial | Aggregate phenotype/QC dashboard only; geography/time await permitted metadata |
 | Prediction Autopsy | Complete | Nine deterministic frozen-test cases summarize 55 prevented and 13 residual emitted errors; API and React presentation are implemented |
 | Standard metrics | Complete and executed | Balanced accuracy, class recall, precision/F1, AUROC, PR-AUC, Brier, reliability, and 1,000-replicate group-bootstrap intervals |
 | Firewall metrics | Complete and executed | Unsafe confidence, errors prevented, selective accuracy, coverage, risk-coverage, worst group, OOD failure, explanation concordance |
+| Class-aware safety report | Complete and executed | Exact R/S coverage numerators and denominators, harm-specific residuals, class-aware risk/coverage curves, and 1,000-replicate genetic-group bootstrap intervals |
 | Final trained models and demo cases | Complete internally | Five artifacts share the frozen feature hash; `release_gate.json` passes every configured strategy, hash, target, coverage, and selective-accuracy check |
 
 ## Completion gate
@@ -69,9 +70,31 @@ The following sequence produces a scientifically evaluable release:
 
 Gates 1-8 are complete. The predeclared training-group rule selects the
 advanced branch only for ciprofloxacin. The Prediction Autopsy and joint
-API/React implementation in gate 9 are complete locally; external deployment
-remains pending.
+API/React implementation in gate 9 and the Build Week safety/OpenAI layers are
+complete locally; credentialed GPT-5.6 verification and external Cloud Run
+deployment remain pending.
 
 Any runtime missing models, AMRFinderPlus, calibration, target annotation, or
 quality evidence fails closed to `no_call`. External validation remains an
 explicit limitation even when the local release gate passes.
+
+## Final local verification
+
+- Backend: 58 tests pass.
+- Frontend: production build, two rendered-output tests, and ESLint pass.
+- Release validator: `research_demo_status=pass`, while
+  `clinical_release_status=fail_not_externally_validated` remains enforced.
+- Packaged frozen assets: 8,454,922 bytes; SHA-256
+  `b285e3c5c009a9df9f23d10dd8ac01ab2eb5be68acbaed050322bdbb23db255c`.
+- Real FASTA smoke test: a 5.09 Mb, 69-contig *E. coli* assembly passed sequence
+  QC. Because the host session lacks an AMRFinderPlus executable or running
+  Docker daemon, every endpoint correctly returned `no_call` with explicit
+  machine-readable reasons instead of inferring susceptibility.
+- Verified frozen-test example: the API returns the real held-out sample
+  `562.100025`; the optional OpenAI layer safely returns
+  `openai_api_key_missing` in this credential-free session while preserving
+  the scientific report and laboratory-confirmation requirement.
+
+The remaining deployment and live-model checks require authorized Google
+Cloud billing/credentials and a server-side OpenAI secret. They are not local
+code defects and have not been represented as complete.
