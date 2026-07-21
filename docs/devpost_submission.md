@@ -149,4 +149,3 @@ React, TypeScript, Python, FastAPI, scikit-learn, AMRFinderPlus, BV-BRC,
 OpenAI GPT-5.6 Sol, OpenAI Responses API, Structured Outputs, Codex, Three.js,
 Docker, Google Cloud Build, Secret Manager, Google Cloud Run, Bioinformatics,
 Genomics, Antimicrobial Resistance, Responsible AI, Uncertainty Quantification.
-

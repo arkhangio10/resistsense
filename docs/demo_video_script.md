@@ -101,4 +101,3 @@ explicit future work. ResistSense: Predict. Challenge. Abstain.”
 - Do not show `.env`, API keys, cloud-console secrets, local paths, or logs.
 - Upload to YouTube as `Public`, not `Unlisted` or `Private`.
 - Verify playback, audio, captions, and the public URL in an incognito window.
-
