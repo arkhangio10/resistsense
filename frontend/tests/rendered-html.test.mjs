@@ -49,6 +49,10 @@ test("frontend delegates scientific decisions to the API", async () => {
   assert.match(page, /\/api\/v1\/verified-demo/);
   assert.match(page, /\/api\/v1\/auditor-safety-eval/);
   assert.match(page, /\/api\/v1\/system-provenance/);
+  assert.match(page, /\/api\/v1\/usage\/visit/);
+  assert.match(page, /resistsense-anonymous-browser-v1/);
+  assert.match(page, /anonymous demo visitors/);
+  assert.match(page, /no IP stored by the app/);
   assert.match(page, /Start 90-second judge tour/);
   assert.match(page, /Verified frozen-test case/);
   assert.match(page, /GPT-5\.6 Evidence Conflict Auditor/);

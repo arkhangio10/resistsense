@@ -1,7 +1,7 @@
 # Devpost submission copy
 
-Replace only the three bracketed placeholders after deployment, video upload,
-and `/feedback` collection. Keep all submitted materials in English.
+Replace only the remaining two bracketed placeholders after video upload and
+`/feedback` collection. Keep all submitted materials in English.
 
 ## Project title
 
@@ -123,7 +123,7 @@ research-only limitations.
 
 ## Testing instructions
 
-1. Open `[PERMANENT_CLOUD_RUN_URL]` in a desktop browser.
+1. Open `https://resistsense-54azg7trza-uc.a.run.app` in a desktop browser.
 2. Click `Start 90-second judge tour`.
 3. Load the verified frozen-test case; no upload or account is required.
 4. Inspect the five antibiotic assessments and select different results to see
@@ -138,7 +138,7 @@ evidence and require laboratory confirmation.
 
 ## URLs
 
-- Live project: `[PERMANENT_CLOUD_RUN_URL]`
+- Live project: `https://resistsense-54azg7trza-uc.a.run.app`
 - GitHub: `https://github.com/arkhangio10/resistsense`
 - YouTube: `[PUBLIC_YOUTUBE_URL]`
 - Codex `/feedback` Session ID: `[CODEX_SESSION_ID]`

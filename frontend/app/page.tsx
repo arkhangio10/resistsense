@@ -63,6 +63,14 @@ type Readiness = {
   safe_when_incomplete: boolean;
 };
 
+type UsageSummary = {
+  available: boolean;
+  unique_anonymous_browsers: number | null;
+  new_visitor: boolean | null;
+  reason: string | null;
+  privacy: string;
+};
+
 type DatasetAudit = {
   status: string;
   source: string;
@@ -320,6 +328,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [usageSummary, setUsageSummary] = useState<UsageSummary | null>(null);
   const [judgeMode, setJudgeMode] = useState(false);
   const [judgeStep, setJudgeStep] = useState<JudgeStep>(1);
 
@@ -355,6 +364,25 @@ export default function Home() {
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: SystemProvenance | null) => setSystemProvenance(payload))
       .catch(() => setSystemProvenance(null));
+    try {
+      const storageKey = "resistsense-anonymous-browser-v1";
+      let visitorId = window.localStorage.getItem(storageKey);
+      if (!visitorId) {
+        visitorId = window.crypto.randomUUID();
+        window.localStorage.setItem(storageKey, visitorId);
+      }
+      fetch(`${API_URL}/api/v1/usage/visit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visitor_id: visitorId }),
+        signal: controller.signal,
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload: UsageSummary | null) => setUsageSummary(payload))
+        .catch(() => setUsageSummary(null));
+    } catch {
+      // Storage can be unavailable in privacy-restricted browsers; the counter stays hidden.
+    }
     return () => controller.abort();
   }, []);
 
@@ -1277,7 +1305,12 @@ export default function Home() {
       <footer className="site-footer">
         <div className="lab-brand"><span className="lab-brand-mark" aria-hidden="true" /><strong>ResistSense</strong></div>
         <p>Predict · Challenge · Abstain</p>
-        <span>Research use only · Laboratory confirmation required</span>
+        <span>
+          Research use only · Laboratory confirmation required
+          {usageSummary?.available && usageSummary.unique_anonymous_browsers !== null
+            ? ` · ${usageSummary.unique_anonymous_browsers.toLocaleString()} anonymous demo visitors · no IP stored by the app`
+            : ""}
+        </span>
       </footer>
 
       {judgeMode && (
